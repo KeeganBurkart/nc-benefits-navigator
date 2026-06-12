@@ -1,0 +1,30 @@
+name: medicaid-only-family-income-above-fns-net
+description: "Wilmington family of three; income clears the FNS net test but the two school-age children still qualify for children's Medicaid/CHIP."
+verified: false
+household:
+  members:
+    - {id: m1, age: 35, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+    - {id: m2, age: 10, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: true}
+    - {id: m3, age: 13, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: true}
+  income:
+    - {id: i1, member_id: m1, kind: wages, amount_cents: 400000, frequency: monthly}
+  expenses:
+    rent_or_mortgage_cents: 0
+    utilities_included: false
+    pays_heating_cooling: false
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 0
+  county: New Hanover
+  purchases_and_prepares_together: true
+# FNS (size 3, earned):
+#   gross = 400000; gross 200% limit (size 3) = 455333 -> passes gross.
+#   deductions: standard(3) 20900 + earned 20% of 400000 = 80000; no shelter (rent 0, no heat).
+#     total = 100900
+#   net = 400000 - 100900 = 299100; net limit (size 3) = 222100; 299100 > 222100 -> FAILS net -> likely_ineligible.
+# Medicaid (size 3, countable wages 400000):
+#   child6-18 base limit (107%+5%, size3) = 254987; 400000 > 254987 (not base-Medicaid).
+#   child CHIP ceiling (211%+5%, size3) = 491761; 400000 <= 491761 -> children qualify at CHIP level -> likely_eligible.
+expected:
+  fns: {status: likely_ineligible}
+  medicaid: {status: likely_eligible}

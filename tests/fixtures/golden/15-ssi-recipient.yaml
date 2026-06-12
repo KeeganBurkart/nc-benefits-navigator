@@ -1,0 +1,32 @@
+name: ssi-recipient-fns-counts-medicaid-excludes
+description: "Disabled Wilmington adult whose only income is SSI -- FNS counts SSI as unearned income, but MAGI Medicaid excludes it entirely, so the two programs treat the same dollars differently."
+verified: false
+household:
+  members:
+    - {id: m1, age: 50, relationship: self, is_pregnant: false, is_disabled: true, immigration_status: citizen, is_student: false}
+  income:
+    - {id: i1, member_id: m1, kind: ssi, amount_cents: 95000, frequency: monthly}
+  expenses:
+    rent_or_mortgage_cents: 50000
+    utilities_included: false
+    pays_heating_cooling: false
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 0
+  county: New Hanover
+  purchases_and_prepares_together: true
+# FNS (size 1, has disabled member -> gross test skipped, shelter uncapped):
+#   SSI COUNTS as unearned income -> gross = 95000 (no earned deduction).
+#   deductions: standard(1-2) 20900
+#     shelter: rent 50000 + no SUA (no heating/cooling) = 50000; income_after_other = 95000 - 20900 = 74100; half = 37050
+#       excess = 50000 - 37050 = 12950 -> uncapped (disabled) = 12950
+#     total = 20900 + 12950 = 33850
+#   net = 95000 - 33850 = 61150; net limit (size 1) = 130500 -> passes.
+#   allotment = max(1) 29800 - round_half_up(0.3 * 61150 = 18345) = 11455.
+# Medicaid (size 1):
+#   SSI is NOT a MAGI-countable kind -> countable income = 0.
+#   adult expansion limit (138%+5%, size1) = 190190; 0 <= 190190 -> adult eligible -> likely_eligible.
+#   (Both programs land likely_eligible here, but via opposite income treatment of the same SSI dollars.)
+expected:
+  fns: {status: likely_eligible, estimated_benefit_cents: 11455}
+  medicaid: {status: likely_eligible}

@@ -1,0 +1,32 @@
+name: hourly-wage-worker-with-toddler
+description: "Young Wilmington parent paid hourly ($15.00/hr, 30 hrs/week) with a toddler; income is normalized from the hourly rate."
+verified: false
+household:
+  members:
+    - {id: m1, age: 24, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+    - {id: m2, age: 2, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+  income:
+    - {id: i1, member_id: m1, kind: wages, amount_cents: 1500, frequency: hourly, hours_per_week: 30.0}
+  expenses:
+    rent_or_mortgage_cents: 80000
+    utilities_included: false
+    pays_heating_cooling: true
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 0
+  county: New Hanover
+  purchases_and_prepares_together: true
+# Income normalization: $15.00/hr * 30 hrs/week * 4.33 weeks = round_half_up = 194850 cents/mo.
+# FNS (size 2, earned):
+#   gross = 194850; gross 200% limit (size 2) = 360667 -> passes.
+#   deductions: standard(1-2) 20900 + earned 20% of 194850 = round_half_up(38970) = 38970
+#     shelter: rent 80000 + SUA(2) 69900 = 149900; income_after_other = 194850 - 59870 = 134980; half = 67490
+#       excess = 149900 - 67490 = 82410 -> capped at 74400 = 74400
+#     total = 20900 + 38970 + 74400 = 134270
+#   net = 194850 - 134270 = 60580; net limit (size 2) = 176300 -> passes.
+#   allotment = max(2) 54600 - round_half_up(0.3 * 60580 = 18174) = 36426.
+# Medicaid (size 2, countable wages 194850):
+#   child1-5 limit (141%+5%, size2) = 263286; 194850 <= 263286 -> child (age 2) eligible -> likely_eligible.
+expected:
+  fns: {status: likely_eligible, estimated_benefit_cents: 36426}
+  medicaid: {status: likely_eligible}

@@ -1,0 +1,33 @@
+name: mixed-immigration-citizen-child-noncitizen-parent
+description: "Wilmington household with a not-qualified-immigrant parent and a citizen child; the parent is excluded from the FNS unit size but their income still counts."
+verified: false
+household:
+  members:
+    - {id: m1, age: 33, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: not_qualified, is_student: false}
+    - {id: m2, age: 6, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: true}
+  income:
+    - {id: i1, member_id: m1, kind: wages, amount_cents: 150000, frequency: monthly}
+  expenses:
+    rent_or_mortgage_cents: 85000
+    utilities_included: false
+    pays_heating_cooling: true
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 0
+  county: New Hanover
+  purchases_and_prepares_together: true
+# FNS: the not_qualified parent is removed from the unit -> unit_size = 1 (only the citizen child),
+#   but ALL income still counts (gross = 150000, all earned).
+#   gross 200% limit (size 1) = 266000 -> passes.
+#   deductions: standard(1-2) 20900 + earned 20% of 150000 = 30000
+#     shelter: rent 85000 + SUA(1) 63700 = 148700; income_after_other = 150000 - 50900 = 99100; half = 49550
+#       excess = 148700 - 49550 = 99150 -> capped at 74400 = 74400
+#     total = 20900 + 30000 + 74400 = 125300
+#   net = 150000 - 125300 = 24700; net limit (size 1) = 130500 -> passes.
+#   allotment = max(1) 29800 - round_half_up(0.3 * 24700 = 7410) = 22390.
+# Medicaid (household size 2 for MAGI; countable wages 150000):
+#   the not_qualified parent gets emergency-only coverage, but the citizen child (age 6) is screened:
+#   child6-18 limit (107%+5%, size2) = 201973; 150000 <= 201973 -> child eligible -> likely_eligible.
+expected:
+  fns: {status: likely_eligible, estimated_benefit_cents: 22390}
+  medicaid: {status: likely_eligible}

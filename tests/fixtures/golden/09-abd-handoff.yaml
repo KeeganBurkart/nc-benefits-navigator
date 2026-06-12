@@ -1,0 +1,30 @@
+name: aged-65-plus-abd-handoff
+description: "70-year-old Wilmington retiree on Social Security; FNS gives a food benefit but Medicaid hands off to the aged/blind/disabled rules this tool does not screen."
+verified: false
+household:
+  members:
+    - {id: m1, age: 70, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+  income:
+    - {id: i1, member_id: m1, kind: social_security, amount_cents: 90000, frequency: monthly}
+  expenses:
+    rent_or_mortgage_cents: 60000
+    utilities_included: false
+    pays_heating_cooling: true
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 0
+  county: New Hanover
+  purchases_and_prepares_together: true
+# FNS (size 1, has elderly (age 70 >= 60) -> gross test skipped, shelter uncapped):
+#   gross = 90000 (Social Security unearned -> no earned deduction).
+#   deductions: standard(1-2) 20900
+#     shelter: rent 60000 + SUA(1) 63700 = 123700; income_after_other = 90000 - 20900 = 69100; half = 34550
+#       excess = 123700 - 34550 = 89150 -> uncapped (elderly) -> 89150 applied.
+#     total = 20900 + 89150 = 110050
+#   net = max(90000 - 110050, 0) = 0; net limit (size 1) = 130500 -> passes.
+#   allotment = max(1) 29800 - round_half_up(0.3 * 0 = 0) = 29800 (full maximum).
+# Medicaid (size 1): the only member is age 70 (>= 65), out of MAGI scope.
+#   No one qualifies under MAGI and an aged member is present -> needs_more_info (ABD hand-off).
+expected:
+  fns: {status: likely_eligible, estimated_benefit_cents: 29800}
+  medicaid: {status: needs_more_info}

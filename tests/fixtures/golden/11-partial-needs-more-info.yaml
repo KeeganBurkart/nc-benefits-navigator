@@ -1,0 +1,19 @@
+name: partial-data-needs-more-info
+description: "A single member with only an age entered; immigration status is unknown, so both programs need more information before deciding."
+verified: false
+household:
+  members:
+    - {id: m1, age: 30}
+  income: []
+  expenses: {}
+  county: New Hanover
+  purchases_and_prepares_together: null
+# The member's immigration_status is None. Both programs cannot categorize without it.
+# FNS: records members[m1].immigration_status as missing -> needs_more_info.
+#   (purchases_and_prepares_together is not demanded -- single-member unit.)
+# Medicaid: member screen hits the immigration gate first -> members[m1].immigration_status missing
+#   -> needs_more_info.
+# Neither program produces a benefit. The shared missing field surfaces once in the engine union.
+expected:
+  fns: {status: needs_more_info}
+  medicaid: {status: needs_more_info}

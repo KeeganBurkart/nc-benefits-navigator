@@ -1,0 +1,32 @@
+name: eligible-both-single-mother-part-time-retail
+description: "Single mother of two young children, part-time retail in Wilmington (New Hanover), pays market rent with heating/cooling."
+verified: false   # Keegan flips to true after hand-checking against the manuals
+household:
+  members:
+    - {id: m1, age: 29, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+    - {id: m2, age: 7, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: true}
+    - {id: m3, age: 4, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+  income:
+    - {id: i1, member_id: m1, kind: wages, amount_cents: 130000, frequency: monthly}
+  expenses:
+    rent_or_mortgage_cents: 90000
+    utilities_included: false
+    pays_heating_cooling: true
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 0
+  county: New Hanover
+  purchases_and_prepares_together: true
+# FNS (size 3, all earned wages):
+#   gross = 130000; gross 200% limit (size 3) = 455333 -> passes gross test.
+#   deductions: standard(3) 20900 + earned 20% of 130000 = 26000
+#     shelter: rent 90000 + SUA(3) 76800 = 166800; income_after_other = 130000-46900 = 83100; half = 41550
+#       excess = 166800 - 41550 = 125250 -> capped at 74400 (no elderly/disabled) = 74400
+#     total deductions = 20900 + 26000 + 74400 = 121300
+#   net = 130000 - 121300 = 8700; net limit (size 3) = 222100 -> passes net test.
+#   allotment = max(3) 78500 - round_half_up(0.3 * 8700 = 2610) = 75890.
+# Medicaid (household size 3, countable wages 130000):
+#   child6-18 limit (107%+5%, size3) = 254987; 130000 <= 254987 -> m2 (age 7) eligible -> household likely_eligible.
+expected:
+  fns: {status: likely_eligible, estimated_benefit_cents: 75890}
+  medicaid: {status: likely_eligible}

@@ -1,0 +1,33 @@
+name: elderly-couple-medical-deduction
+description: "Older Wilmington couple (63 and 64) on Social Security with significant out-of-pocket medical costs; the medical deduction raises their food benefit."
+verified: false
+household:
+  members:
+    - {id: m1, age: 63, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+    - {id: m2, age: 64, relationship: spouse, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+  income:
+    - {id: i1, member_id: m1, kind: social_security, amount_cents: 180000, frequency: monthly}
+  expenses:
+    rent_or_mortgage_cents: 40000
+    utilities_included: false
+    pays_heating_cooling: false
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 50000
+  county: New Hanover
+  purchases_and_prepares_together: true
+# FNS (size 2, has elderly -> gross test skipped, shelter deduction uncapped):
+#   gross = 180000 (Social Security is unearned -> no 20% earned deduction).
+#   deductions: standard(1-2) 20900
+#     medical: 50000 - 35.00 threshold (3500) = 46500 (elderly/disabled members only)
+#     shelter: rent 40000 + no SUA (no heating/cooling) = 40000;
+#       income_after_other = 180000 - 67400 = 112600; half = 56300; excess = 40000 - 56300 < 0 -> no shelter deduction.
+#     total = 20900 + 46500 = 67400
+#   net = 180000 - 67400 = 112600; net limit (size 2) = 176300 -> passes.
+#   allotment = max(2) 54600 - round_half_up(0.3 * 112600 = 33780) = 20820.
+#   (Without the medical deduction net would be 159100 and the allotment only 6870 -- the deduction is load-bearing.)
+# Medicaid (size 2, countable Social Security 180000; both adults 63/64 are in MAGI scope, under 65):
+#   adult expansion limit (138%+5%, size2) = 257876; 180000 <= 257876 -> adults qualify -> likely_eligible.
+expected:
+  fns: {status: likely_eligible, estimated_benefit_cents: 20820}
+  medicaid: {status: likely_eligible}

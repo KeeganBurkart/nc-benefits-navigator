@@ -1,0 +1,36 @@
+name: large-household-seven-members
+description: "Two-parent Wilmington family with five children (household of 7) -- exercises the table extrapolation beyond the printed size-8 chart and the 6+ deduction bands."
+verified: false
+household:
+  members:
+    - {id: m1, age: 40, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+    - {id: m2, age: 38, relationship: spouse, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+    - {id: m3, age: 16, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: true}
+    - {id: m4, age: 14, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: true}
+    - {id: m5, age: 11, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: true}
+    - {id: m6, age: 8, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: true}
+    - {id: m7, age: 5, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+  income:
+    - {id: i1, member_id: m1, kind: wages, amount_cents: 350000, frequency: monthly}
+  expenses:
+    rent_or_mortgage_cents: 160000
+    utilities_included: false
+    pays_heating_cooling: true
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 0
+  county: New Hanover
+  purchases_and_prepares_together: true
+# FNS (size 7, earned):
+#   gross = 350000; gross 200% limit (size 7) = 834000 -> passes.
+#   deductions: standard(6+) 29900 + earned 20% of 350000 = 70000
+#     shelter: rent 160000 + SUA(5+) 91200 = 251200; income_after_other = 350000 - 99900 = 250100; half = 125050
+#       excess = 251200 - 125050 = 126150 -> capped at 74400 = 74400
+#     total = 29900 + 70000 + 74400 = 174300
+#   net = 350000 - 174300 = 175700; net limit (size 7) = 405500 -> passes.
+#   allotment = max(7) 157100 - round_half_up(0.3 * 175700 = 52710) = 104390.
+# Medicaid (size 7, countable wages 350000):
+#   child6-18 limit (107%+5%, size7) = 467040; 350000 <= 467040 -> the five children qualify -> likely_eligible.
+expected:
+  fns: {status: likely_eligible, estimated_benefit_cents: 104390}
+  medicaid: {status: likely_eligible}

@@ -1,0 +1,16 @@
+name: empty-household
+description: "No members and no income entered yet -- the screen has nothing to evaluate and asks for more information."
+verified: false
+household:
+  members: []
+  income: []
+  expenses: {}
+  county: null
+  purchases_and_prepares_together: null
+# FNS: no members and no income -> short-circuits to needs_more_info (nothing to test).
+# Medicaid: no members and no income -> short-circuits to needs_more_info (nothing to test).
+# Neither program produces a benefit. missing_fields stay empty because there are no
+# member/income rows to report paths against (the engine never raises on the empty input).
+expected:
+  fns: {status: needs_more_info}
+  medicaid: {status: needs_more_info}

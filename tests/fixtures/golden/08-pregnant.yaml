@@ -1,0 +1,30 @@
+name: pregnant-adult-medicaid-for-pregnant-women
+description: "Pregnant Wilmington adult working full time; qualifies for Medicaid for Pregnant Women and a modest food benefit."
+verified: false
+household:
+  members:
+    - {id: m1, age: 27, relationship: self, is_pregnant: true, is_disabled: false, immigration_status: citizen, is_student: false}
+  income:
+    - {id: i1, member_id: m1, kind: wages, amount_cents: 160000, frequency: monthly}
+  expenses:
+    rent_or_mortgage_cents: 95000
+    utilities_included: false
+    pays_heating_cooling: true
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 0
+  county: New Hanover
+  purchases_and_prepares_together: true
+# FNS (size 1, earned; pregnancy does NOT exempt the shelter cap -- only elderly/disabled does):
+#   gross = 160000; gross 200% limit (size 1) = 266000 -> passes.
+#   deductions: standard(1-2) 20900 + earned 20% of 160000 = 32000
+#     shelter: rent 95000 + SUA(1) 63700 = 158700; income_after_other = 160000 - 52900 = 107100; half = 53550
+#       excess = 158700 - 53550 = 105150 -> capped at 74400 = 74400
+#     total = 20900 + 32000 + 74400 = 127300
+#   net = 160000 - 127300 = 32700; net limit (size 1) = 130500 -> passes.
+#   allotment = max(1) 29800 - round_half_up(0.3 * 32700 = 9810) = 19990.
+# Medicaid (size 1, countable wages 160000):
+#   Pregnant Women limit (196%+5%, size1) = 267330; 160000 <= 267330 -> pregnant adult eligible -> likely_eligible.
+expected:
+  fns: {status: likely_eligible, estimated_benefit_cents: 19990}
+  medicaid: {status: likely_eligible}

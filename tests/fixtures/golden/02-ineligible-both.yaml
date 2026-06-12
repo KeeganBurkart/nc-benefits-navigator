@@ -1,0 +1,25 @@
+name: ineligible-both-high-earning-single-adult
+description: "Single working professional in Wilmington earning well above every limit; no children."
+verified: false
+household:
+  members:
+    - {id: m1, age: 45, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+  income:
+    - {id: i1, member_id: m1, kind: wages, amount_cents: 600000, frequency: monthly}
+  expenses:
+    rent_or_mortgage_cents: 120000
+    utilities_included: false
+    pays_heating_cooling: true
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 0
+  county: New Hanover
+  purchases_and_prepares_together: true
+# FNS (size 1):
+#   gross = 600000; gross 200% limit (size 1) = 266000; 600000 > 266000 -> FAILS gross test -> likely_ineligible.
+# Medicaid (size 1, countable wages 600000):
+#   highest reachable limit is the child CHIP ceiling (211%+5%, size1) = 287280; 600000 > 287280
+#   -> fail-fast: no one can qualify -> likely_ineligible.
+expected:
+  fns: {status: likely_ineligible}
+  medicaid: {status: likely_ineligible}

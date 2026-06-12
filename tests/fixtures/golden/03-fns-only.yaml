@@ -1,0 +1,32 @@
+name: fns-only-childless-adult-modest-wages
+description: "Childless adult in Wilmington earning modest wages, high rent. Qualifies for food assistance but income is just over the adult Medicaid line."
+verified: false
+household:
+  members:
+    - {id: m1, age: 50, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+  income:
+    - {id: i1, member_id: m1, kind: wages, amount_cents: 200000, frequency: monthly}
+  expenses:
+    rent_or_mortgage_cents: 110000
+    utilities_included: false
+    pays_heating_cooling: true
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 0
+  county: New Hanover
+  purchases_and_prepares_together: true
+# FNS (size 1, earned):
+#   gross = 200000; gross 200% limit (size 1) = 266000 -> passes.
+#   deductions: standard(1-2) 20900 + earned 20% of 200000 = 40000
+#     shelter: rent 110000 + SUA(1) 63700 = 173700; income_after_other = 200000-60900 = 139100; half = 69550
+#       excess = 173700 - 69550 = 104150 -> capped at 74400 = 74400
+#     total = 20900 + 40000 + 74400 = 135300
+#   net = 200000 - 135300 = 64700; net limit (size 1) = 130500 -> passes.
+#   allotment = max(1) 29800 - round_half_up(0.3 * 64700 = 19410) = 10390.
+# Medicaid (size 1, countable wages 200000):
+#   no children, not pregnant. Adult expansion limit (138%+5%, size1) = 190190; 200000 > 190190.
+#   Highest reachable limit (CHIP 211%+5%) = 287280, but only children reach it; this adult cannot.
+#   200000 < 287280 so no fail-fast, but per-member screen finds adult over 190190 -> likely_ineligible.
+expected:
+  fns: {status: likely_eligible, estimated_benefit_cents: 10390}
+  medicaid: {status: likely_ineligible}
