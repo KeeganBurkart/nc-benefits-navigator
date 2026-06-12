@@ -8,6 +8,8 @@ guard structure and invariants.
 
 from __future__ import annotations
 
+import textwrap
+import types
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -28,7 +30,7 @@ from rules.tables.loader import (
 def test_load_table_returns_typed_table() -> None:
     table = load_table("fpl")
     assert isinstance(table, Table)
-    assert isinstance(table.values, dict)
+    assert isinstance(table.values, (dict, types.MappingProxyType))
     assert isinstance(table.source_url, str) and table.source_url.startswith("http")
     assert isinstance(table.source_name, str) and table.source_name
     assert isinstance(table.effective_from, date)
@@ -47,7 +49,7 @@ def test_loader_caches_same_instance() -> None:
 
 
 def test_unknown_table_name_raises_clear_error() -> None:
-    with pytest.raises((FileNotFoundError, KeyError, ValueError)) as exc:
+    with pytest.raises(FileNotFoundError) as exc:
         load_table("does_not_exist")
     assert "does_not_exist" in str(exc.value)
 
@@ -88,18 +90,21 @@ def test_assert_current_raises_before_range() -> None:
 # ---------------------------------------------------------------------------
 
 
+_Mapping = (dict, types.MappingProxyType)
+
+
 def _all_positive_int_cents(node: object) -> bool:
     """Recursively assert every key ending in `_cents` holds a positive int."""
-    if isinstance(node, dict):
+    if isinstance(node, _Mapping):
         for k, v in node.items():
             if isinstance(k, str) and k.endswith("_cents"):
-                if isinstance(v, dict):
+                if isinstance(v, _Mapping):
                     if not _all_positive_int_cents(v):
                         return False
                 else:
                     if not (isinstance(v, int) and not isinstance(v, bool) and v > 0):
                         return False
-            elif isinstance(v, dict):
+            elif isinstance(v, _Mapping):
                 if not _all_positive_int_cents(v):
                     return False
     return True
@@ -229,7 +234,7 @@ def test_fns_gross_limit_approximates_twice_fpl() -> None:
 
 def test_fns_standard_deduction_present() -> None:
     sd = load_table("fns").values["standard_deduction_cents"]
-    assert isinstance(sd, dict) and sd
+    assert isinstance(sd, _Mapping) and sd
 
 
 # ---------------------------------------------------------------------------
@@ -261,7 +266,7 @@ def test_medicaid_percentages_are_positive() -> None:
     assert v["pregnant_pct"] > 0
     assert v["parent_caretaker_pct"] > 0
     bands = v["child_pct_by_age_band"]
-    assert isinstance(bands, dict) and bands
+    assert isinstance(bands, _Mapping) and bands
     for label, pct in bands.items():
         assert isinstance(label, str)
         assert isinstance(pct, (int, float)) and pct > 0
@@ -278,3 +283,93 @@ def test_every_file_parses_with_schema_fields(name: str) -> None:
     assert t.source_url and t.source_name
     assert t.effective_from and t.effective_to
     assert t.values
+
+
+# ---------------------------------------------------------------------------
+# Fix 1: frozen / immutable cached values
+# ---------------------------------------------------------------------------
+
+
+def test_cached_values_top_level_mutation_raises() -> None:
+    """Top-level assignment into Table.values must raise TypeError."""
+    t = load_table("fns")
+    with pytest.raises(TypeError):
+        t.values["new_key"] = 999  # type: ignore[index]
+
+
+def test_cached_values_nested_dict_mutation_raises() -> None:
+    """Mutation inside a nested mapping must also raise TypeError."""
+    t = load_table("fns")
+    with pytest.raises(TypeError):
+        t.values["gross_limit_200pct_cents"][1] = 0  # type: ignore[index]
+
+
+def test_values_is_mapping_proxy() -> None:
+    """Table.values should be a MappingProxyType (not a plain dict)."""
+    t = load_table("fns")
+    assert isinstance(t.values, types.MappingProxyType)
+
+
+# ---------------------------------------------------------------------------
+# Fix 2: date-order guard at load time
+# ---------------------------------------------------------------------------
+
+
+def _write_bad_table(tmp_path: "pytest.TempPathFactory", *, from_: str, to: str) -> str:
+    """Write a minimal YAML table with the given date range and return its stem."""
+    content = textwrap.dedent(f"""\
+        source_url: "https://example.com"
+        source_name: "Test table"
+        effective_from: "{from_}"
+        effective_to: "{to}"
+        values:
+          foo: 1
+    """)
+    p = tmp_path / "bad_dates.yaml"
+    p.write_text(content, encoding="utf-8")
+    return "bad_dates"
+
+
+def test_date_order_guard_equal_dates(tmp_path: "pytest.TempPathFactory", monkeypatch: pytest.MonkeyPatch) -> None:
+    """effective_from == effective_to must raise ValueError at load time."""
+    import rules.tables.loader as loader_mod
+
+    stem = _write_bad_table(tmp_path, from_="2026-01-01", to="2026-01-01")
+    monkeypatch.setattr(loader_mod, "_TABLES_DIR", tmp_path)
+    loader_mod.load_table.cache_clear()
+    try:
+        with pytest.raises(ValueError, match="bad_dates"):
+            loader_mod.load_table(stem)
+    finally:
+        loader_mod.load_table.cache_clear()
+
+
+def test_date_order_guard_inverted_dates(tmp_path: "pytest.TempPathFactory", monkeypatch: pytest.MonkeyPatch) -> None:
+    """effective_from > effective_to must raise ValueError at load time."""
+    import rules.tables.loader as loader_mod
+
+    stem = _write_bad_table(tmp_path, from_="2026-06-01", to="2025-01-01")
+    monkeypatch.setattr(loader_mod, "_TABLES_DIR", tmp_path)
+    loader_mod.load_table.cache_clear()
+    try:
+        with pytest.raises(ValueError, match="bad_dates"):
+            loader_mod.load_table(stem)
+    finally:
+        loader_mod.load_table.cache_clear()
+
+
+# ---------------------------------------------------------------------------
+# Fix 5: standard_deduction band keys are strings
+# ---------------------------------------------------------------------------
+
+
+def test_standard_deduction_band_keys_are_strings() -> None:
+    """Band keys must be strings; consumers resolve int size → band label."""
+    sd = load_table("fns").values["standard_deduction_cents"]
+    assert set(sd.keys()) == {"1-2", "3", "4", "5", "6+"}
+
+
+def test_standard_utility_allowance_band_keys_are_strings() -> None:
+    """SUA band keys must also be strings."""
+    sua = load_table("fns").values["standard_utility_allowance_cents"]
+    assert set(sua.keys()) == {"1", "2", "3", "4", "5+"}

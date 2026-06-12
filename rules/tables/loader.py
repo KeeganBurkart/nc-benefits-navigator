@@ -10,6 +10,7 @@ file is read at most once per process and cached.
 
 from __future__ import annotations
 
+import types
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
@@ -38,11 +39,20 @@ class Table:
     """An immutable view of one versioned data file."""
 
     name: str
-    values: dict
+    values: types.MappingProxyType
     source_url: str
     source_name: str
     effective_from: date
     effective_to: date
+
+
+def _freeze(obj: object) -> object:
+    """Recursively convert dicts to MappingProxyType and lists to tuples."""
+    if isinstance(obj, dict):
+        return types.MappingProxyType({k: _freeze(v) for k, v in obj.items()})
+    if isinstance(obj, list):
+        return tuple(_freeze(item) for item in obj)
+    return obj
 
 
 def _coerce_date(value: object, *, field: str, name: str) -> date:
@@ -81,13 +91,22 @@ def load_table(name: str) -> Table:
     if not isinstance(values, dict):
         raise ValueError(f"table '{name}': 'values' must be a mapping")
 
+    effective_from = _coerce_date(raw["effective_from"], field="effective_from", name=name)
+    effective_to = _coerce_date(raw["effective_to"], field="effective_to", name=name)
+
+    if effective_from >= effective_to:
+        raise ValueError(
+            f"table '{name}': effective_from {effective_from.isoformat()} must be "
+            f"before effective_to {effective_to.isoformat()}"
+        )
+
     return Table(
         name=name,
-        values=values,
+        values=_freeze(values),  # type: ignore[arg-type]
         source_url=str(raw["source_url"]),
         source_name=str(raw["source_name"]),
-        effective_from=_coerce_date(raw["effective_from"], field="effective_from", name=name),
-        effective_to=_coerce_date(raw["effective_to"], field="effective_to", name=name),
+        effective_from=effective_from,
+        effective_to=effective_to,
     )
 
 
@@ -101,5 +120,5 @@ def assert_current(table: Table, today: date) -> None:
         raise StaleTableError(
             f"table '{table.name}' is not current for {today.isoformat()}: "
             f"effective {table.effective_from.isoformat()} through "
-            f"{table.effective_to.isoformat()} (effective_to={table.effective_to.isoformat()})"
+            f"{table.effective_to.isoformat()}"
         )

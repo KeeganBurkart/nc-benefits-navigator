@@ -66,6 +66,9 @@ values:
   # Standard Deductions, 48 States & DC, keyed by the official household-size
   # bands printed in the memo: sizes 1-2 and 3 are both $209; 4=$223; 5=$261; 6+=$299.
   # Keys are the band labels exactly as published.
+  # WARNING: band keys are STRINGS ("1-2", "3", "4", "5", "6+"), not ints.
+  # Consumers must resolve int household size → band label before lookup.
+  # Do NOT access this dict with a raw int key — it will always miss.
   standard_deduction_cents:
     "1-2": 20900   # $209
     "3": 20900     # $209

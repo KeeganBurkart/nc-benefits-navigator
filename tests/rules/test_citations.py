@@ -100,13 +100,50 @@ def test_all_citations_returns_every_entry():
     assert {c.rule_id for c in cites} == set(RULE_IDS)
 
 
-def test_registry_has_no_duplicate_rule_ids():
-    from rules.citations import all_citations
+def test_registry_has_no_duplicate_rule_ids_in_source():
+    """Parse citations.py with ast and assert no duplicate string keys in _REGISTRY.
 
-    cites = all_citations()
-    rule_ids = [c.rule_id for c in cites]
-    assert len(rule_ids) == len(RULE_IDS)
-    assert len(set(rule_ids)) == len(rule_ids)
+    A plain dict at runtime silently takes the last value for duplicate keys,
+    so a runtime check can never detect silent overwrites. This test checks the
+    source text directly so it catches the bug before any dict is built.
+    """
+    import ast
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parent.parent.parent / "rules" / "citations.py").read_text(
+        encoding="utf-8"
+    )
+    tree = ast.parse(src)
+
+    # Find the _REGISTRY assignment at module level.
+    # Handles both plain ``_REGISTRY = {...}`` (ast.Assign) and annotated
+    # ``_REGISTRY: dict[...] = {...}`` (ast.AnnAssign).
+    registry_node = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "_REGISTRY" for t in node.targets
+        ):
+            registry_node = node.value
+            break
+        if (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "_REGISTRY"
+            and node.value is not None
+        ):
+            registry_node = node.value
+            break
+
+    assert registry_node is not None, "_REGISTRY assignment not found in citations.py"
+    assert isinstance(registry_node, ast.Dict), "_REGISTRY must be a dict literal"
+
+    string_keys = [
+        k.value
+        for k in registry_node.keys
+        if isinstance(k, ast.Constant) and isinstance(k.value, str)
+    ]
+    duplicates = [k for k in string_keys if string_keys.count(k) > 1]
+    assert not duplicates, f"Duplicate rule_id keys in _REGISTRY source: {sorted(set(duplicates))}"
 
 
 def test_registry_is_exactly_the_contract_set():
