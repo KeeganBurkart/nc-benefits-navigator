@@ -1,0 +1,49 @@
+# NC Medicaid MAGI income limits (percent of Federal Poverty Level).
+#
+# Source: NCDHHS "MA-3321, MAGI MEDICAID & MEDICAID EXPANSION INCOME LIMITS"
+# chart (PDF: MA-3321-MAGI-Income-2.pdf), effective APRIL 1, 2026. NC updates
+# these limits each April 1 (not January 1), so this April-2026 chart is the
+# current authority as of today (2026-06-12).
+#
+# The chart publishes dollar income limits by household size for each aid
+# category, with the governing percentage of the FPL in the leftmost column.
+# We store the BASE percentages here. NC adds a 5% FPL disregard at screening
+# time, so the effective ceiling is (base + magi_disregard_pct). This matches
+# NC's published "effective" figures (e.g. children 211% + 5% = 216%; pregnant
+# 196% + 5% = 201%; expansion 133% + 5% = 138%).
+source_url: "https://policies.ncdhhs.gov/wp-content/uploads/MA-3321-MAGI-Income-2.pdf"
+source_name: "NCDHHS MA-3321 MAGI Medicaid & Medicaid Expansion Income Limits (effective 2026-04-01)"
+effective_from: "2026-04-01"
+effective_to: "2027-03-31"
+values:
+  # Medicaid Expansion adults 19-64 (MXP-N). The chart's MXP-N row is governed
+  # by 133% FPL; with the statutory 5% MAGI disregard the effective ACA
+  # threshold is 138%. Contract stores the canonical expansion figure (138).
+  adult_expansion_pct: 138
+  # Medicaid for Pregnant Women (MPW), MA-3321 row "196% MPW". Base percentage.
+  pregnant_pct: 196
+  # Medicaid for Infants and Children (MIC-N), base percentages by NC's actual
+  # age bands. Each band also has a CHIP ceiling of 211% (MIC-1 rows), reached
+  # by combining the base with NC's income-disregard / CHIP expansion. The base
+  # MAGI Medicaid percentage and the 211% CHIP ceiling are both recorded.
+  child_pct_by_age_band:
+    "under_1": 194      # MIC-N <1 (base 194%; MIC-1 CHIP ceiling 211%)
+    "age_1_5": 141      # MIC-N age 1-5 (base 141%; MIC-1 CHIP ceiling 211%)
+    "age_6_18": 107     # MIC-N age 6-18 (base 107%; MIC-1 CHIP ceiling 211%)
+  # CHIP upper income ceiling that applies to all child age bands (MIC-1 rows).
+  child_chip_ceiling_pct: 211
+  # Parents / caretaker relatives (MAF-C/N, "Aid to Families with Children").
+  # NC publishes MAF-C as a low DOLLAR need standard rather than a flat FPL
+  # percentage, so the implied % drifts with household size (size 1 $434 ->
+  # ~32.6% FPL; size 4 $744 -> ~27.1% FPL). We store the size-1 MAF-C limit
+  # ($434/mo) expressed against the 2026 size-1 FPL ($1,330/mo) = 33% (rounded).
+  # NC has expanded Medicaid, so most parents qualify via the 138% expansion
+  # group; this MAF-C limit governs the legacy parent/caretaker pathway only.
+  # NOTE: because the limit is dollar-based, program logic should prefer the
+  # published MAF-C dollar standard over this single percentage where exactness
+  # matters; this percentage is a documented size-1 approximation.
+  parent_caretaker_pct: 33
+  # 5% FPL MAGI disregard, applied at screening time to the BASE percentages
+  # above for the highest category the individual could qualify under (the
+  # standard MAGI "5 percentage-point" disregard). Stored as an integer.
+  magi_disregard_pct: 5

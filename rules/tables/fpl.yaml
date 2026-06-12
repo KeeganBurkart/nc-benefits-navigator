@@ -1,0 +1,43 @@
+# 2026 HHS Federal Poverty Guidelines — 48 contiguous states and DC.
+#
+# Source document: "2026 Poverty Guidelines: 48 Contiguous States (all states
+# except Alaska and Hawaii)" detailed table (ASPE), columns "Dollars Per Year"
+# (100%) and "Dollars Per Month" (100%). Published in the Federal Register
+# 2026-01-15 (FR Doc. 2026-00755); guideline effective date 2026-01-13.
+#
+# Effective-date convention: the calendar-year 2026 guidelines remain in use by
+# benefit programs until each program adopts the next year's guidelines (timing
+# differs by program; the 2027 guidelines typically publish ~mid-Jan 2027). We
+# set effective_to = 2027-03-31 as a documented buffer covering that adoption lag.
+#
+# All monthly figures below are HHS's OWN published per-month values (rounded to
+# the cent), stored as integer cents. They satisfy monthly == round_half_up(annual/12).
+source_url: "https://aspe.hhs.gov/sites/default/files/documents/b1bfa16b20ae9b89d525bc35de7c1643/detailed-guidelines-2026.pdf"
+source_name: "HHS ASPE 2026 Poverty Guidelines (48 contiguous states & DC); Federal Register 2026-01-15, FR Doc. 2026-00755"
+effective_from: "2026-01-13"
+effective_to: "2027-03-31"
+values:
+  # 100% FPL, "Dollars Per Year" column -> integer cents.
+  annual_cents_by_household_size:
+    1: 1596000   # $15,960.00
+    2: 2164000   # $21,640.00
+    3: 2732000   # $27,320.00
+    4: 3300000   # $33,000.00
+    5: 3868000   # $38,680.00
+    6: 4436000   # $44,360.00
+    7: 5004000   # $50,040.00
+    8: 5572000   # $55,720.00
+  # 100% FPL, "Dollars Per Month" column -> integer cents.
+  monthly_cents_by_household_size:
+    1: 133000    # $1,330.00
+    2: 180333    # $1,803.33
+    3: 227667    # $2,276.67
+    4: 275000    # $2,750.00
+    5: 322333    # $3,223.33
+    6: 369667    # $3,696.67
+    7: 417000    # $4,170.00
+    8: 464333    # $4,643.33
+  # "For families/households with more than 8 persons, add $5,680 for each
+  # additional person" (annual). Monthly additional = round_half_up(5680/12) = $473.33.
+  additional_member_cents: 47333          # $473.33 / month
+  additional_member_annual_cents: 568000  # $5,680.00 / year

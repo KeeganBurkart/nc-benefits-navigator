@@ -1,0 +1,97 @@
+# SNAP / NC Food and Nutrition Services (FNS) — FY2026 figures.
+# 48 States and DC column, effective Oct 1, 2025 through Sep 30, 2026.
+#
+# Source: USDA FNS "SNAP – Fiscal Year 2026 Cost-of-Living Adjustments" memo
+# (Ronald Ward, Acting Associate Administrator, dated 2025-08-13). Tables used:
+#   - "Net Monthly Income Eligibility Standards (100 Percent of Poverty Level)" (p.3)
+#   - "Maximum Monthly Allotments — 48 States and D.C." (p.4)
+#   - "Standard Deductions" (p.6)
+#   - "Maximum Excess Shelter Deductions" / "Maximum Homeless Shelter Deductions" (p.6)
+#   - "Minimum SNAP Allotments" (p.5)
+# All money values stored as integer cents.
+#
+# Sizes 1-8 are USDA-published; sizes 9 and 10 are extended using USDA's published
+# "each additional member/person" increment (net +$459/member; allotment +$218/person),
+# the standard USDA method for households beyond the printed table.
+source_url: "https://www.usda.gov/sites/default/files/guidance-documents/fns.snap-cola-fy26memo.pdf"
+source_name: "USDA FNS SNAP FY2026 COLA Memo (effective 2025-10-01), 48 States & DC"
+effective_from: "2025-10-01"
+effective_to: "2026-09-30"
+values:
+  # NC operates Broad-Based Categorical Eligibility (BBCE) with a 200% FPL gross
+  # income test (no asset test for most households) — NC's actual SNAP/FNS gross
+  # limit, broader than the federal 130% standard. The USDA COLA memo publishes
+  # only 130% and 165% gross standards, so these 200% figures are taken from
+  # HHS's published "Dollars Per Month, 200%" column of the 2026 poverty
+  # guidelines (48 contiguous states), stored as integer cents. They match a
+  # naive 2x of the FPL monthly figures to the cent (rounding artifacts <$0.01).
+  # Sizes 9-10 use the HHS-published 200% monthly figures for those sizes.
+  gross_limit_200pct_cents:
+    1: 266000    # $2,660.00
+    2: 360667    # $3,606.67
+    3: 455333    # $4,553.33
+    4: 550000    # $5,500.00
+    5: 644667    # $6,446.67
+    6: 739333    # $7,393.33
+    7: 834000    # $8,340.00
+    8: 928667    # $9,286.67
+    9: 1023333   # $10,233.33
+    10: 1118000  # $11,180.00
+  # Net Monthly Income Eligibility Standards (100% poverty), 48 States & DC.
+  # Each additional member = +$459/mo (sizes 9-10 derived from size 8).
+  net_limit_100pct_cents:
+    1: 130500    # $1,305
+    2: 176300    # $1,763
+    3: 222100    # $2,221
+    4: 268000    # $2,680
+    5: 313800    # $3,138
+    6: 359600    # $3,596
+    7: 405500    # $4,055
+    8: 451300    # $4,513
+    9: 497200    # $4,972  (= $4,513 + $459)
+    10: 543100   # $5,431  (= $4,972 + $459)
+  # Maximum Monthly Allotments, 48 States & DC.
+  # Each additional person = +$218 (sizes 9-10 derived from size 8).
+  max_allotment_cents:
+    1: 29800     # $298
+    2: 54600     # $546
+    3: 78500     # $785
+    4: 99400     # $994
+    5: 118300    # $1,183
+    6: 142100    # $1,421
+    7: 157100    # $1,571
+    8: 178900    # $1,789
+    9: 200700    # $2,007  (= $1,789 + $218)
+    10: 222500   # $2,225  (= $2,007 + $218)
+  # Standard Deductions, 48 States & DC, keyed by the official household-size
+  # bands printed in the memo: sizes 1-2 and 3 are both $209; 4=$223; 5=$261; 6+=$299.
+  # Keys are the band labels exactly as published.
+  standard_deduction_cents:
+    "1-2": 20900   # $209
+    "3": 20900     # $209
+    "4": 22300     # $223
+    "5": 26100     # $261
+    "6+": 29900    # $299
+  # 20% earned income deduction (statutory; not in the COLA dollar tables).
+  earned_income_deduction_pct: 0.20
+  # Maximum Excess Shelter Deduction (shelter cap), 48 States & DC.
+  excess_shelter_cap_cents: 74400        # $744
+  # Maximum Homeless Shelter Deduction, 48 States & DC.
+  homeless_shelter_deduction_cents: 19899  # $198.99
+  # NC's Heating/Cooling Standard Utility Allowance (SUA). NOT in the federal
+  # COLA memo — NC is one of the few states whose SUA varies by household size.
+  # Values are NC's FFY2026 amounts (effective 2025-10-01) from the NCDHHS
+  # FNS-360 "Determining Benefit Levels" manual (rev. 2025-09-30), table
+  # "Current SUA, BUA, and TUA Amounts". Keyed by the manual's size bands
+  # (1, 2, 3, 4, "5+"). Stored as integer cents.
+  standard_utility_allowance_cents:
+    "1": 63700     # $637
+    "2": 69900     # $699
+    "3": 76800     # $768
+    "4": 83700     # $837
+    "5+": 91200    # $912
+  # Standard medical deduction threshold for elderly/disabled members: $35/mo
+  # (statutory; expenses above this are deductible). Stored in cents per contract.
+  medical_deduction_threshold_cents: 3500  # $35.00
+  # Minimum SNAP Allotment (1-2 person households), 48 States & DC.
+  minimum_allotment_cents: 2400  # $24
