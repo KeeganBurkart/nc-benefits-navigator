@@ -518,19 +518,29 @@ def test_unknown_immigration_status_is_missing_field():
 # ---------------------------------------------------------------------------
 
 def test_unit_size_beyond_10_extrapolates():
-    # size 12. gross limit: size10=1118000, size9=1023333, diff=94667.
-    #   size12 = 1118000 + 2*94667 = 1307334.
-    # Just assert it doesn't crash and a household with modest income passes gross.
+    # size 12. Extrapolation uses size-9→size-10 increments:
+    #   gross_limit:   size10=1118000, size9=1023333, diff=94667.
+    #                  size12 = 1118000 + 2*94667 = 1307334.
+    #   net_limit:     size10=543100,  size9=497200,  diff=45900.
+    #                  size12 = 543100 + 2*45900 = 634900.
+    #   max_allotment: size10=222500,  size9=200700,  diff=21800.
+    #                  size12 = 222500 + 2*21800 = 266100.
+    #
+    # income=200000 all wages. std band "6+"=29900. earned 20%=40000.
+    # net = 200000 - 29900 - 40000 = 130100. net_limit=634900 → passes.
+    # allotment = 266100 - round(0.3*130100=39030) = 266100 - 39030 = 227070.
     members_ = [member(f"m{i}", age=30 if i == 1 else 10,
                        relationship="self" if i == 1 else "child") for i in range(1, 13)]
     hh = Household(
         members=members_,
         income=[income("i1", 200000)],
         expenses=Expenses(),
+        purchases_and_prepares_together=True,
     )
     r = evaluate(hh)
-    # 200000 well under extrapolated gross limit → gross passes
+    assert r.status == "likely_eligible"
     assert "fns.gross_income" in reasons_by_rule(r)
+    assert r.estimated_benefit_cents == 227070
 
 
 # ---------------------------------------------------------------------------

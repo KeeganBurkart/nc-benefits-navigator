@@ -11,6 +11,11 @@ Thrifty Food Plan allotment formula. All money is integer cents.
 
 Pure deterministic logic: this module must never import from ``interview/``,
 ``server/``, or the anthropic package.
+
+NOTE: ``homeless_shelter_deduction_cents`` exists in fns.yaml but is NOT applied
+here — homeless households are not modeled in v1 (the shelter-deduction path
+assumes a rent/mortgage figure). A future contributor should add a homeless flag
+and apply this deduction in _phase_deductions before tackling the net test.
 """
 
 from __future__ import annotations
@@ -120,19 +125,17 @@ def _is_elderly_or_disabled(m: Member) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Entry point
+# Phase helpers — each takes explicit inputs, returns explicit outputs.
+# evaluate() calls them in order; reasons are appended in evaluation order
+# and the UI renders them in that same order.
 # ---------------------------------------------------------------------------
 
-def evaluate(household: Household) -> ProgramResult:  # noqa: C901 - cohesive policy flow
-    values = load_table("fns").values
-
-    reasons: list[Reason] = []
-    missing: list[str] = []
-
+def _phase_unit_composition(household: Household) -> tuple[list[Member], list[Member], int, list[str], list[Reason]]:
+    """Return (unit_members, not_qualified, unit_size, missing, reasons)."""
     members = household.members
+    missing: list[str] = []
+    reasons: list[Reason] = []
 
-    # --- Immigration: not_qualified members are excluded from unit size but
-    #     their income still counts. unknown/None status is a missing field. ---
     for m in members:
         if m.immigration_status in (None, "unknown"):
             missing.append(f"members[{m.id}].immigration_status")
@@ -150,7 +153,6 @@ def evaluate(household: Household) -> ProgramResult:  # noqa: C901 - cohesive po
             "than the real benefit). The people who do qualify can still get help.",
         ))
 
-    # --- Household purchasing unit (whole household in v1) ---
     if household.purchases_and_prepares_together is None and len(members) > 1:
         missing.append("purchases_and_prepares_together")
     elif household.purchases_and_prepares_together is False and len(members) > 1:
@@ -162,9 +164,19 @@ def evaluate(household: Household) -> ProgramResult:  # noqa: C901 - cohesive po
             "be too high. A caseworker can screen the smaller groups separately.",
         ))
 
-    # --- Countable income: every kind counts for FNS ---
+    return unit_members, not_qualified, unit_size, missing, reasons
+
+
+def _phase_countable_income(household: Household) -> tuple[int, int, bool, list[str]]:
+    """Return (gross, earned, income_complete, missing).
+
+    Accumulates gross and earned income; records any incomplete income items.
+    """
     gross = 0
+    earned = 0
     income_complete = True
+    missing: list[str] = []
+
     for idx, item in enumerate(household.income):
         m = monthly_cents(item)
         if m is None:
@@ -177,35 +189,20 @@ def evaluate(household: Household) -> ProgramResult:  # noqa: C901 - cohesive po
                 missing.append(f"income[{idx}].hours_per_week")
             continue
         gross += m
-
-    earned = 0
-    for item in household.income:
         if item.kind in _EARNED_KINDS:
-            m = monthly_cents(item)
-            if m is not None:
-                earned += m
+            earned += m
 
-    has_elderly_disabled = any(_is_elderly_or_disabled(m) for m in unit_members)
+    return gross, earned, income_complete, missing
 
-    documents = _build_documents(household)
 
-    # An empty household (no members, no income) just needs more info.
-    if not members and not household.income:
-        return ProgramResult(
-            program="fns",
-            program_label=PROGRAM_LABEL,
-            status="needs_more_info",
-            reasons=reasons,
-            estimated_benefit_cents=None,
-            required_documents=documents,
-            missing_fields=_dedup(missing),
-        )
+def _phase_gross_test(
+    values, gross: int, size_for_tables: int, has_elderly_disabled: bool
+) -> tuple[bool, bool, list[Reason]]:
+    """Return (gross_failed, test_applied, reasons).
 
-    size_for_tables = max(unit_size, 1)
-
-    # --- Gross income test (BBCE 200%) ---
-    gross_limit = _size_lookup(values["gross_limit_200pct_cents"], size_for_tables)
-    gross_failed = False
+    test_applied is False when elderly/disabled exemption skips the test.
+    """
+    reasons: list[Reason] = []
 
     if has_elderly_disabled:
         reasons.append(_reason(
@@ -213,45 +210,46 @@ def evaluate(household: Household) -> ProgramResult:  # noqa: C901 - cohesive po
             "This household has someone who is 60 or older or has a disability, "
             "so it does not have to pass the income-before-deductions test.",
         ))
-    else:
-        if gross <= gross_limit:
-            reasons.append(_reason(
-                "fns.gross_income",
-                f"Your household's monthly income before deductions ({_fmt(gross)}) "
-                f"is under the limit for a household of {size_for_tables} "
-                f"({_fmt(gross_limit)}).",
-            ))
-        else:
-            gross_failed = True
-            reasons.append(_reason(
-                "fns.gross_income",
-                f"Your household's monthly income before deductions ({_fmt(gross)}) "
-                f"is over the limit for a household of {size_for_tables} "
-                f"({_fmt(gross_limit)}).",
-            ))
+        return False, False, reasons
 
-    # Note the BBCE rule context once (only meaningful when gross test applies).
-    if not has_elderly_disabled:
+    gross_limit = _size_lookup(values["gross_limit_200pct_cents"], size_for_tables)
+    gross_failed = gross > gross_limit
+
+    if not gross_failed:
         reasons.append(_reason(
-            "fns.bbce",
-            "North Carolina uses a higher income limit (200% of the poverty "
-            "level) for food assistance, so more households can qualify.",
+            "fns.gross_income",
+            f"Your household's monthly income before deductions ({_fmt(gross)}) "
+            f"is under the limit for a household of {size_for_tables} "
+            f"({_fmt(gross_limit)}).",
+        ))
+    else:
+        reasons.append(_reason(
+            "fns.gross_income",
+            f"Your household's monthly income before deductions ({_fmt(gross)}) "
+            f"is over the limit for a household of {size_for_tables} "
+            f"({_fmt(gross_limit)}).",
         ))
 
-    # --- Fail fast: known income already over the gross limit ---
-    if gross_failed:
-        return ProgramResult(
-            program="fns",
-            program_label=PROGRAM_LABEL,
-            status="likely_ineligible",
-            reasons=reasons,
-            estimated_benefit_cents=None,
-            required_documents=documents,
-            missing_fields=[],
-        )
+    reasons.append(_reason(
+        "fns.bbce",
+        "North Carolina uses a higher income limit (200% of the poverty "
+        "level) for food assistance, so more households can qualify.",
+    ))
 
-    # --- Deductions ---
-    exp: Expenses = household.expenses
+    return gross_failed, True, reasons
+
+
+def _phase_deductions(
+    values, gross: int, earned: int, size_for_tables: int,
+    has_elderly_disabled: bool, exp: Expenses,
+) -> tuple[int, bool, list[str], list[Reason]]:
+    """Return (total_deductions, shelter_blocked, missing, reasons).
+
+    Applies: standard, earned income, dependent care, child support, medical,
+    and excess shelter deductions in that order.
+    """
+    reasons: list[Reason] = []
+    missing: list[str] = []
     deductions = 0
 
     # Standard deduction (always applies).
@@ -304,7 +302,7 @@ def evaluate(household: Household) -> ProgramResult:  # noqa: C901 - cohesive po
                 f"household member add a {_fmt(med)} deduction.",
             ))
 
-    # --- Excess shelter deduction (needs rent; SUA needs pays_heating_cooling) ---
+    # Excess shelter deduction.
     # The net test cannot be completed without rent. If rent is missing we ask
     # for it. If rent is present but pays_heating_cooling is None we can't size
     # the utility allowance, so we ask for that.
@@ -316,23 +314,20 @@ def evaluate(household: Household) -> ProgramResult:  # noqa: C901 - cohesive po
         exp.rent_or_mortgage_cents is not None or exp.pays_heating_cooling is not None
     )
     shelter_blocked = False
-    if not shelter_engaged:
-        pass  # no shelter reported → no shelter deduction, nothing to ask for
-    elif exp.rent_or_mortgage_cents is None:
-        # Heating/cooling reported but rent missing — rent is needed for net test.
-        missing.append("expenses.rent_or_mortgage_cents")
-        shelter_blocked = True
-    else:
-        if exp.pays_heating_cooling is None:
+
+    if shelter_engaged:
+        if exp.rent_or_mortgage_cents is None:
+            # Heating/cooling reported but rent missing — rent is needed for net test.
+            missing.append("expenses.rent_or_mortgage_cents")
+            shelter_blocked = True
+        elif exp.pays_heating_cooling is None:
             missing.append("expenses.pays_heating_cooling")
             shelter_blocked = True
         else:
             shelter = exp.rent_or_mortgage_cents
             if exp.pays_heating_cooling:
                 shelter += int(values["standard_utility_allowance_cents"][_sua_band(size_for_tables)])
-            income_after_other = gross - deductions
-            if income_after_other < 0:
-                income_after_other = 0
+            income_after_other = max(gross - deductions, 0)
             half = income_after_other // 2
             excess = shelter - half
             if excess > 0:
@@ -346,27 +341,19 @@ def evaluate(household: Household) -> ProgramResult:  # noqa: C901 - cohesive po
                     f"{_fmt(excess)} excess shelter deduction is subtracted.",
                 ))
 
-    # --- If income is incomplete or a needed input is missing, we can't decide. ---
-    if income_complete:
-        # Income-field misses (if any) don't block when income is complete.
-        pass
+    return deductions, shelter_blocked, missing, reasons
 
-    blocking_missing = _dedup(missing)
-    if not income_complete or shelter_blocked or blocking_missing:
-        return ProgramResult(
-            program="fns",
-            program_label=PROGRAM_LABEL,
-            status="needs_more_info",
-            reasons=reasons,
-            estimated_benefit_cents=None,
-            required_documents=documents,
-            missing_fields=blocking_missing,
-        )
 
-    # --- Net income test ---
-    net = gross - deductions
-    if net < 0:
-        net = 0
+def _phase_net_and_allotment(
+    values, gross: int, deductions: int, size_for_tables: int
+) -> tuple[str, int | None, list[Reason]]:
+    """Return (status, benefit_cents, reasons).
+
+    Computes net income, runs the 100% net test, and computes the allotment
+    when the household passes.
+    """
+    reasons: list[Reason] = []
+    net = max(gross - deductions, 0)
     net_limit = _size_lookup(values["net_limit_100pct_cents"], size_for_tables)
 
     if net <= net_limit:
@@ -381,27 +368,93 @@ def evaluate(household: Household) -> ProgramResult:  # noqa: C901 - cohesive po
             f"Based on this income, your estimated monthly food benefit is "
             f"{_fmt(benefit)}.",
         ))
-        return ProgramResult(
-            program="fns",
-            program_label=PROGRAM_LABEL,
-            status="likely_eligible",
-            reasons=reasons,
-            estimated_benefit_cents=benefit,
-            required_documents=documents,
-            missing_fields=[],
-        )
+        return "likely_eligible", benefit, reasons
 
     reasons.append(_reason(
         "fns.net_income",
         f"Your household's income after deductions ({_fmt(net)}) is over the limit "
         f"for a household of {size_for_tables} ({_fmt(net_limit)}).",
     ))
+    return "likely_ineligible", None, reasons
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def evaluate(household: Household) -> ProgramResult:
+    values = load_table("fns").values
+
+    # --- Phase 1: unit composition ---
+    unit_members, _not_qualified, unit_size, missing, reasons = _phase_unit_composition(household)
+
+    # --- Phase 2: countable income ---
+    gross, earned, income_complete, income_missing = _phase_countable_income(household)
+    missing.extend(income_missing)
+
+    has_elderly_disabled = any(_is_elderly_or_disabled(m) for m in unit_members)
+    documents = _build_documents(household)
+
+    # An empty household (no members, no income) just needs more info.
+    if not household.members and not household.income:
+        return ProgramResult(
+            program="fns",
+            program_label=PROGRAM_LABEL,
+            status="needs_more_info",
+            reasons=reasons,
+            estimated_benefit_cents=None,
+            required_documents=documents,
+            missing_fields=_dedup(missing),
+        )
+
+    size_for_tables = max(unit_size, 1)
+
+    # --- Phase 3: gross test ---
+    gross_failed, _test_applied, gross_reasons = _phase_gross_test(
+        values, gross, size_for_tables, has_elderly_disabled
+    )
+    reasons.extend(gross_reasons)
+
+    if gross_failed:
+        return ProgramResult(
+            program="fns",
+            program_label=PROGRAM_LABEL,
+            status="likely_ineligible",
+            reasons=reasons,
+            estimated_benefit_cents=None,
+            required_documents=documents,
+            missing_fields=[],
+        )
+
+    # --- Phase 4: deduction chain ---
+    deductions, shelter_blocked, ded_missing, ded_reasons = _phase_deductions(
+        values, gross, earned, size_for_tables, has_elderly_disabled, household.expenses
+    )
+    missing.extend(ded_missing)
+    reasons.extend(ded_reasons)
+
+    blocking_missing = _dedup(missing)
+    if not income_complete or shelter_blocked or blocking_missing:
+        return ProgramResult(
+            program="fns",
+            program_label=PROGRAM_LABEL,
+            status="needs_more_info",
+            reasons=reasons,
+            estimated_benefit_cents=None,
+            required_documents=documents,
+            missing_fields=blocking_missing,
+        )
+
+    # --- Phase 5: net income test + allotment ---
+    status, benefit, net_reasons = _phase_net_and_allotment(values, gross, deductions, size_for_tables)
+    reasons.extend(net_reasons)
+
     return ProgramResult(
         program="fns",
         program_label=PROGRAM_LABEL,
-        status="likely_ineligible",
+        status=status,
         reasons=reasons,
-        estimated_benefit_cents=None,
+        estimated_benefit_cents=benefit,
         required_documents=documents,
         missing_fields=[],
     )
