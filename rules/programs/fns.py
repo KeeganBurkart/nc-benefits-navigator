@@ -130,8 +130,8 @@ def _is_elderly_or_disabled(m: Member) -> bool:
 # and the UI renders them in that same order.
 # ---------------------------------------------------------------------------
 
-def _phase_unit_composition(household: Household) -> tuple[list[Member], list[Member], int, list[str], list[Reason]]:
-    """Return (unit_members, not_qualified, unit_size, missing, reasons)."""
+def _phase_unit_composition(household: Household) -> tuple[list[Member], int, list[str], list[Reason]]:
+    """Return (unit_members, unit_size, missing, reasons)."""
     members = household.members
     missing: list[str] = []
     reasons: list[Reason] = []
@@ -164,7 +164,7 @@ def _phase_unit_composition(household: Household) -> tuple[list[Member], list[Me
             "be too high. A caseworker can screen the smaller groups separately.",
         ))
 
-    return unit_members, not_qualified, unit_size, missing, reasons
+    return unit_members, unit_size, missing, reasons
 
 
 def _phase_countable_income(household: Household) -> tuple[int, int, bool, list[str]]:
@@ -197,10 +197,10 @@ def _phase_countable_income(household: Household) -> tuple[int, int, bool, list[
 
 def _phase_gross_test(
     values, gross: int, size_for_tables: int, has_elderly_disabled: bool
-) -> tuple[bool, bool, list[Reason]]:
-    """Return (gross_failed, test_applied, reasons).
+) -> tuple[bool, list[Reason]]:
+    """Return (gross_failed, reasons).
 
-    test_applied is False when elderly/disabled exemption skips the test.
+    The elderly/disabled exemption skips the test entirely (never fails).
     """
     reasons: list[Reason] = []
 
@@ -210,7 +210,7 @@ def _phase_gross_test(
             "This household has someone who is 60 or older or has a disability, "
             "so it does not have to pass the income-before-deductions test.",
         ))
-        return False, False, reasons
+        return False, reasons
 
     gross_limit = _size_lookup(values["gross_limit_200pct_cents"], size_for_tables)
     gross_failed = gross > gross_limit
@@ -236,7 +236,7 @@ def _phase_gross_test(
         "level) for food assistance, so more households can qualify.",
     ))
 
-    return gross_failed, True, reasons
+    return gross_failed, reasons
 
 
 def _phase_deductions(
@@ -386,7 +386,7 @@ def evaluate(household: Household) -> ProgramResult:
     values = load_table("fns").values
 
     # --- Phase 1: unit composition ---
-    unit_members, _not_qualified, unit_size, missing, reasons = _phase_unit_composition(household)
+    unit_members, unit_size, missing, reasons = _phase_unit_composition(household)
 
     # --- Phase 2: countable income ---
     gross, earned, income_complete, income_missing = _phase_countable_income(household)
@@ -410,7 +410,7 @@ def evaluate(household: Household) -> ProgramResult:
     size_for_tables = max(unit_size, 1)
 
     # --- Phase 3: gross test ---
-    gross_failed, _test_applied, gross_reasons = _phase_gross_test(
+    gross_failed, gross_reasons = _phase_gross_test(
         values, gross, size_for_tables, has_elderly_disabled
     )
     reasons.extend(gross_reasons)
