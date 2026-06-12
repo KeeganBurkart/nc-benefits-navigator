@@ -1,9 +1,8 @@
 """Tests for rules/models.py — written before implementation (TDD)."""
 from decimal import Decimal
 
-import pytest
 import pydantic
-
+import pytest
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -155,7 +154,7 @@ def test_monthly_cents_none_when_hourly_without_hours():
 # ===========================================================================
 
 def base_household():
-    from rules.models import Household, Member, IncomeItem, Expenses
+    from rules.models import Expenses, Household, IncomeItem, Member
     return Household(
         members=[
             Member(id="m1", age=30, relationship="self"),
@@ -223,7 +222,8 @@ def test_apply_patch_income_update_by_id():
 def test_apply_patch_income_append_new_id():
     from rules.models import apply_patch
     h = base_household()
-    h2 = apply_patch(h, {"income": [{"id": "i2", "kind": "unemployment", "amount_cents": 50000, "frequency": "weekly"}]})
+    patch = {"income": [{"id": "i2", "kind": "unemployment", "amount_cents": 50000, "frequency": "weekly"}]}
+    h2 = apply_patch(h, patch)
     ids = [i.id for i in h2.income]
     assert "i2" in ids
     assert len(h2.income) == 2
@@ -290,7 +290,7 @@ def test_negative_expense_raises():
 # ===========================================================================
 
 def test_missing_summary_empty_household():
-    from rules.models import missing_summary, Household
+    from rules.models import Household, missing_summary
     h = Household()
     result = missing_summary(h)
     # top-level scalars: county, purchases_and_prepares_together
@@ -299,7 +299,7 @@ def test_missing_summary_empty_household():
 
 
 def test_missing_summary_member_paths():
-    from rules.models import missing_summary, Household, Member
+    from rules.models import Household, Member, missing_summary
     h = Household(members=[Member(id="m1")])
     result = missing_summary(h)
     assert "members[m1].age" in result
@@ -311,7 +311,7 @@ def test_missing_summary_member_paths():
 
 
 def test_missing_summary_income_paths_use_index():
-    from rules.models import missing_summary, Household, IncomeItem
+    from rules.models import Household, IncomeItem, missing_summary
     h = Household(income=[IncomeItem(id="i1")])
     result = missing_summary(h)
     # income uses index, not id
@@ -323,21 +323,21 @@ def test_missing_summary_income_paths_use_index():
 
 
 def test_missing_summary_income_excludes_hours_when_not_hourly():
-    from rules.models import missing_summary, Household, IncomeItem
+    from rules.models import Household, IncomeItem, missing_summary
     h = Household(income=[IncomeItem(id="i1", frequency="monthly", amount_cents=100000)])
     result = missing_summary(h)
     assert "income[0].hours_per_week" not in result
 
 
 def test_missing_summary_income_includes_hours_when_hourly():
-    from rules.models import missing_summary, Household, IncomeItem
+    from rules.models import Household, IncomeItem, missing_summary
     h = Household(income=[IncomeItem(id="i1", frequency="hourly", amount_cents=1500)])
     result = missing_summary(h)
     assert "income[0].hours_per_week" in result
 
 
 def test_missing_summary_expenses_conditional_exclusion():
-    from rules.models import missing_summary, Household, Expenses
+    from rules.models import Expenses, Household, missing_summary
     # Without rent set, utilities_included and pays_heating_cooling excluded
     h = Household(expenses=Expenses())
     result = missing_summary(h)
@@ -346,7 +346,7 @@ def test_missing_summary_expenses_conditional_exclusion():
 
 
 def test_missing_summary_expenses_includes_heat_when_rent_set():
-    from rules.models import missing_summary, Household, Expenses
+    from rules.models import Expenses, Household, missing_summary
     h = Household(expenses=Expenses(rent_or_mortgage_cents=80000))
     result = missing_summary(h)
     assert "expenses.utilities_included" in result
@@ -354,7 +354,7 @@ def test_missing_summary_expenses_includes_heat_when_rent_set():
 
 
 def test_missing_summary_expenses_path_format():
-    from rules.models import missing_summary, Household, Expenses
+    from rules.models import Expenses, Household, missing_summary
     h = Household(expenses=Expenses())
     result = missing_summary(h)
     assert "expenses.rent_or_mortgage_cents" in result
@@ -365,7 +365,7 @@ def test_missing_summary_expenses_path_format():
 
 def test_missing_summary_no_false_positives():
     """Filled-in fields should NOT appear in missing_summary."""
-    from rules.models import missing_summary, Household, Member, Expenses
+    from rules.models import Expenses, Household, Member, missing_summary
     h = Household(
         members=[Member(id="m1", age=30, relationship="self", is_pregnant=False,
                         is_disabled=False, immigration_status="citizen", is_student=False)],
@@ -389,7 +389,7 @@ def test_missing_summary_no_false_positives():
 
 def test_missing_summary_stable_order():
     """missing_summary returns fields in document order."""
-    from rules.models import missing_summary, Household, Member
+    from rules.models import Household, Member, missing_summary
     h = Household(
         members=[Member(id="m1")],
         county=None,

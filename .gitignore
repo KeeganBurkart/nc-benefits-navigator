@@ -22,3 +22,6 @@ web/node_modules/
 
 # OS
 .DS_Store
+dist-ssr/
+*.local
+*.log

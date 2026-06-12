@@ -6,11 +6,10 @@ interview/, server/, or the anthropic package.
 
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
 from pydantic import BaseModel, field_validator
-
 
 # ---------------------------------------------------------------------------
 # Member
