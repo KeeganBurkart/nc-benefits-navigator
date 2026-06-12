@@ -94,5 +94,7 @@ def test_golden_fixture(path: Path):
         else:
             # No benefit asserted -> the program must not have produced one
             # (Medicaid is always None; FNS is None unless likely_eligible).
-            if program == "medicaid":
-                assert got.estimated_benefit_cents is None
+            assert got.estimated_benefit_cents is None, (
+                f"{path.name}: {program} expected no benefit but got "
+                f"{got.estimated_benefit_cents}"
+            )

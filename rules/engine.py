@@ -22,7 +22,11 @@ from rules.programs import PROGRAMS
 from rules.programs.types import ProgramResult
 
 # The programs run in this exact order; the result list mirrors it.
+# IMPORTANT: _PROGRAM_ORDER must stay in sync with PROGRAMS keys.
 _PROGRAM_ORDER = ("fns", "medicaid")
+assert set(_PROGRAM_ORDER) == set(PROGRAMS), (
+    f"_PROGRAM_ORDER {set(_PROGRAM_ORDER)} out of sync with PROGRAMS {set(PROGRAMS)}"
+)
 
 DISCLAIMER = (
     "This is a screening estimate, not an eligibility determination. "

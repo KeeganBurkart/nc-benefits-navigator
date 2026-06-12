@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import re
 
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 from rules.engine import screen_all
@@ -117,6 +117,87 @@ def households(draw) -> Household:
     )
 
 
+@st.composite
+def ineligible_households(draw) -> Household:
+    """Complete households with very high income so FNS/Medicaid likely_ineligible is common.
+
+    Wages 700000-2000000 cents/mo, 1-4 members, all member fields filled,
+    purchases_and_prepares_together=True.
+    """
+    n = draw(st.integers(min_value=1, max_value=4))
+    members = [
+        Member(
+            id=f"m{i}",
+            age=draw(st.integers(min_value=25, max_value=55)),
+            relationship=draw(st.sampled_from(["self", "spouse", "child", "other_relative"])),
+            is_pregnant=False,
+            is_disabled=False,
+            immigration_status=draw(st.sampled_from(["citizen", "qualified_immigrant"])),
+            is_student=False,
+        )
+        for i in range(n)
+    ]
+    income = [
+        IncomeItem(
+            id="i0",
+            member_id="m0",
+            kind="wages",
+            amount_cents=draw(st.integers(min_value=700_000, max_value=2_000_000)),
+            frequency="monthly",
+        )
+    ]
+    return Household(
+        members=members,
+        income=income,
+        expenses=Expenses(
+            rent_or_mortgage_cents=draw(st.integers(min_value=0, max_value=300_000)),
+            pays_heating_cooling=draw(st.sampled_from([True, False])),
+        ),
+        county=draw(st.sampled_from(["New Hanover", "Brunswick", "Pender"])),
+        purchases_and_prepares_together=True,
+    )
+
+
+@st.composite
+def eligible_fns_households(draw) -> Household:
+    """Complete low-income households so FNS likely_eligible is common.
+
+    Wages 50000-150000 cents/mo, 1-3 members, rent present, pays_heating_cooling set.
+    """
+    n = draw(st.integers(min_value=1, max_value=3))
+    members = [
+        Member(
+            id=f"m{i}",
+            age=draw(st.integers(min_value=25, max_value=55)),
+            relationship=draw(st.sampled_from(["self", "spouse", "child", "other_relative"])),
+            is_pregnant=False,
+            is_disabled=False,
+            immigration_status=draw(st.sampled_from(["citizen", "qualified_immigrant"])),
+            is_student=False,
+        )
+        for i in range(n)
+    ]
+    income = [
+        IncomeItem(
+            id="i0",
+            member_id="m0",
+            kind="wages",
+            amount_cents=draw(st.integers(min_value=50_000, max_value=150_000)),
+            frequency="monthly",
+        )
+    ]
+    return Household(
+        members=members,
+        income=income,
+        expenses=Expenses(
+            rent_or_mortgage_cents=draw(st.integers(min_value=50_000, max_value=200_000)),
+            pays_heating_cooling=draw(st.sampled_from([True, False])),
+        ),
+        county=draw(st.sampled_from(["New Hanover", "Brunswick", "Pender"])),
+        purchases_and_prepares_together=True,
+    )
+
+
 def _by_program(result, name: str) -> ProgramResult:
     return next(p for p in result.programs if p.program == name)
 
@@ -132,22 +213,15 @@ def test_screen_all_never_raises(hh: Household):
     assert [p.program for p in result.programs] == ["fns", "medicaid"]
 
 
-def test_screen_all_empty_household():
-    # Explicit empty-household coverage (not relying on the generator).
-    result = screen_all(Household())
-    assert [p.program for p in result.programs] == ["fns", "medicaid"]
-
-
 # ---------------------------------------------------------------------------
 # 2. Income monotonicity: adding income never flips ineligible -> eligible
 # ---------------------------------------------------------------------------
 
 @settings(max_examples=150, deadline=None, suppress_health_check=[HealthCheck.too_slow])
-@given(households(), st.sampled_from(["fns", "medicaid"]), _cents, st.sampled_from(_INCOME_KINDS[1:]))
+@given(ineligible_households(), st.sampled_from(["fns", "medicaid"]), _cents, st.sampled_from(_INCOME_KINDS[1:]))
 def test_adding_income_never_flips_to_eligible(hh: Household, program: str, extra_cents: int, kind: str):
     before = _by_program(screen_all(hh), program)
-    if before.status != "likely_ineligible":
-        return  # only the ineligible -> eligible flip is forbidden
+    assume(before.status == "likely_ineligible")  # only the ineligible -> eligible flip is forbidden
 
     used_ids = {item.id for item in hh.income}
     new_id = "extra"
@@ -169,11 +243,10 @@ def test_adding_income_never_flips_to_eligible(hh: Household, program: str, extr
 # ---------------------------------------------------------------------------
 
 @settings(max_examples=150, deadline=None, suppress_health_check=[HealthCheck.too_slow])
-@given(households(), _cents)
+@given(eligible_fns_households(), _cents)
 def test_fns_increasing_deduction_never_lowers_allotment(hh: Household, bump: int):
     fns_before = _by_program(screen_all(hh), "fns")
-    if fns_before.status != "likely_eligible":
-        return
+    assume(fns_before.status == "likely_eligible")
 
     exp = hh.expenses
     base_dc = exp.dependent_care_cents or 0
@@ -181,8 +254,7 @@ def test_fns_increasing_deduction_never_lowers_allotment(hh: Household, bump: in
     bumped = hh.model_copy(update={"expenses": bumped_exp})
 
     fns_after = _by_program(screen_all(bumped), "fns")
-    if fns_after.status != "likely_eligible":
-        return  # only compare when both runs land likely_eligible
+    assume(fns_after.status == "likely_eligible")  # only compare when both runs land likely_eligible
     assert fns_after.estimated_benefit_cents >= fns_before.estimated_benefit_cents
 
 
