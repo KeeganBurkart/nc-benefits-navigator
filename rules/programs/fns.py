@@ -22,10 +22,12 @@ from __future__ import annotations
 
 from decimal import ROUND_HALF_UP, Decimal
 
-from rules.citations import cite
 from rules.models import Expenses, Household, Member, monthly_cents
+from rules.programs._shared import INCOME_DOC_NAMES as _INCOME_DOC_NAMES
+from rules.programs._shared import dedup as _dedup
+from rules.programs._shared import fmt as _fmt
+from rules.programs._shared import reason as _reason
 from rules.programs.types import (
-    CitationOut,
     DocumentRequirement,
     ProgramResult,
     Reason,
@@ -36,32 +38,6 @@ PROGRAM_LABEL = "FNS (Food and Nutrition Services / SNAP)"
 
 _ELDERLY_AGE = 60
 _EARNED_KINDS = ("wages", "self_employment")
-
-# Human-readable income document name per income kind (rule doc.income).
-_INCOME_DOC_NAMES = {
-    "wages": "Pay stubs (last 30 days)",
-    "self_employment": "Self-employment records",
-    "unemployment": "Unemployment award letter",
-    "ssi": "SSI award letter",
-    "ssdi": "SSDI award letter",
-    "social_security": "Social Security award letter",
-    "child_support_received": "Child support records",
-    "other": "Documentation of other income",
-}
-
-
-# ---------------------------------------------------------------------------
-# Formatting helpers
-# ---------------------------------------------------------------------------
-
-def _fmt(cents: int) -> str:
-    """Format integer cents as a $X,XXX.XX dollar string (e.g. 455333 -> $4,553.33)."""
-    dollars = Decimal(cents) / Decimal(100)
-    return f"${dollars:,.2f}"
-
-
-def _reason(rule_id: str, text: str) -> Reason:
-    return Reason(rule_id=rule_id, text=text, citation=CitationOut.from_citation(cite(rule_id)))
 
 
 # ---------------------------------------------------------------------------
@@ -534,16 +510,3 @@ def _build_documents(household: Household) -> list[DocumentRequirement]:
     return docs
 
 
-# ---------------------------------------------------------------------------
-# Misc
-# ---------------------------------------------------------------------------
-
-def _dedup(paths: list[str]) -> list[str]:
-    """Preserve order, drop duplicates."""
-    seen: set[str] = set()
-    out: list[str] = []
-    for p in paths:
-        if p not in seen:
-            seen.add(p)
-            out.append(p)
-    return out

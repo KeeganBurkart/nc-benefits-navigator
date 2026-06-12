@@ -27,6 +27,7 @@ from __future__ import annotations
 from decimal import ROUND_HALF_UP, Decimal
 
 from rules.models import Household, Member, monthly_cents
+from rules.programs._shared import INCOME_DOC_NAMES as _INCOME_DOC_NAMES
 from rules.programs._shared import dedup, fmt, reason
 from rules.programs.types import DocumentRequirement, ProgramResult, Reason
 from rules.tables.loader import load_table
@@ -41,18 +42,6 @@ _CHILD_MAX_AGE = 18
 _ADULT_MIN_AGE = 19
 _EXPANSION_MAX_AGE = 64
 
-# Human-readable income document name per income kind (rule doc.income).
-_INCOME_DOC_NAMES = {
-    "wages": "Pay stubs (last 30 days)",
-    "self_employment": "Self-employment records",
-    "unemployment": "Unemployment award letter",
-    "ssi": "SSI award letter",
-    "ssdi": "SSDI award letter",
-    "social_security": "Social Security award letter",
-    "child_support_received": "Child support records",
-    "other": "Documentation of other income",
-}
-
 
 # ---------------------------------------------------------------------------
 # Federal Poverty Level and category limits
@@ -63,6 +52,9 @@ def _fpl_monthly(size: int) -> int:
 
     The published chart runs sizes 1..8; beyond 8 we add ``additional_member_cents``
     per extra member (HHS's "each additional person" method).
+
+    ``load_table`` is lru_cached, so this per-call lookup hits memory after the
+    first invocation and is both cheap and deterministic.
     """
     fpl = load_table("fpl").values
     by_size = fpl["monthly_cents_by_household_size"]

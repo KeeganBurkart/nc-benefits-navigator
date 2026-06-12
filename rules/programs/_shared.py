@@ -12,6 +12,19 @@ from decimal import Decimal
 from rules.citations import cite
 from rules.programs.types import CitationOut, Reason
 
+# Human-readable income document name per income kind (rule doc.income).
+# Used by both fns.py and medicaid.py document builders.
+INCOME_DOC_NAMES = {
+    "wages": "Pay stubs (last 30 days)",
+    "self_employment": "Self-employment records",
+    "unemployment": "Unemployment award letter",
+    "ssi": "SSI award letter",
+    "ssdi": "SSDI award letter",
+    "social_security": "Social Security award letter",
+    "child_support_received": "Child support records",
+    "other": "Documentation of other income",
+}
+
 
 def fmt(cents: int) -> str:
     """Format integer cents as a $X,XXX.XX dollar string (e.g. 264670 -> $2,646.70)."""

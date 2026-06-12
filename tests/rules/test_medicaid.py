@@ -620,6 +620,36 @@ def test_reason_text_has_dollar_amounts_and_no_rule_ids():
 
 
 # ---------------------------------------------------------------------------
+# Pregnant adult with minor: priority 2 fires before priority 3
+# ---------------------------------------------------------------------------
+
+def test_pregnant_adult_with_minor_eligible_via_pregnant_not_parent_caretaker():
+    # Verifies that a pregnant adult with a minor in the household is caught by
+    # Priority 2 (pregnant) even though Priority 3 (parent/caretaker) would also
+    # apply — i.e., has_minor=True does NOT reroute her to parent/caretaker first.
+    #
+    #   size 2, FPL[2] = 180333
+    #   pregnant limit   = 201% * 180333 = 362,469.33 → 362,470 (half-up)
+    #   parent/caretaker =  38% * 180333 =  68,526.54 →  68,527
+    #
+    # Income 100,000 is OVER the parent/caretaker limit (68,527) but well UNDER
+    # the pregnant limit (362,470). If priorities were inverted, she would fall
+    # through at priority 3 and reach expansion; instead priority 2 catches her.
+    # The child (age 12) at CHIP ceiling 216% * 180333 = 389,519.28 → 389,519 is
+    # also under the limit, so the household is eligible for two independent
+    # reasons — but the pregnant reason must be present.
+    hh = Household(
+        members=[member("m1", age=28, is_pregnant=True),
+                 member("c1", age=12, relationship="child")],
+        income=[income("i1", 100000)],
+    )
+    r = evaluate(hh)
+    assert r.status == "likely_eligible"
+    assert "medicaid.pregnant" in reasons_by_rule(r)
+    assert "medicaid.parent_caretaker" not in reasons_by_rule(r)
+
+
+# ---------------------------------------------------------------------------
 # Household size beyond 8 (additional member)
 # ---------------------------------------------------------------------------
 
