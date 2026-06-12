@@ -715,6 +715,17 @@ def test_pnp_false_adds_limitation_reason():
     assert "fns.household_composition" in reasons_by_rule(r)
 
 
+def test_pnp_false_irrelevant_for_single_member():
+    hh = Household(
+        members=[member("m1")],
+        income=[income("i1", 100000)],
+        purchases_and_prepares_together=False,
+        expenses=Expenses(),
+    )
+    r = evaluate(hh)
+    assert "fns.household_composition" not in reasons_by_rule(r)
+
+
 # ---------------------------------------------------------------------------
 # Missing rent blocks net test (when gross passed) but not when gross failed
 # ---------------------------------------------------------------------------

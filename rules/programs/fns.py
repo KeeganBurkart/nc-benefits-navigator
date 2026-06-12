@@ -153,7 +153,7 @@ def evaluate(household: Household) -> ProgramResult:  # noqa: C901 - cohesive po
     # --- Household purchasing unit (whole household in v1) ---
     if household.purchases_and_prepares_together is None and len(members) > 1:
         missing.append("purchases_and_prepares_together")
-    elif household.purchases_and_prepares_together is False:
+    elif household.purchases_and_prepares_together is False and len(members) > 1:
         reasons.append(_reason(
             "fns.household_composition",
             "You told us this household does not buy and prepare food together. "
