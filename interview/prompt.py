@@ -6,14 +6,11 @@ relay the deterministic engine's results — never to decide eligibility itself.
 
 from __future__ import annotations
 
+from rules.engine import DISCLAIMER
+
 # The exact disclaimer sentence the model must reproduce when the screen is
-# complete. Mirrors rules.engine.DISCLAIMER but is asserted as one sentence the
-# model emits in chat.
-DISCLAIMER_SENTENCE = (
-    "This is a screening estimate, not an eligibility determination. "
-    "Only your county DSS can determine eligibility. "
-    "Apply online at https://epass.nc.gov."
-)
+# complete. Imported from the engine so the two can never drift.
+DISCLAIMER_SENTENCE = DISCLAIMER
 
 
 def build_system_prompt(screening_summary: str) -> str:
