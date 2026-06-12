@@ -6,89 +6,20 @@ get_final_message(), mirroring anthropic.AsyncAnthropic().messages.stream(...).
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import anthropic
 import pytest
 
-from interview.loop import API_ERROR_MESSAGE, run_turn
+from interview.loop import API_ERROR_MESSAGE
 from interview.tools import SessionState
 from rules.models import Household, Member
-
-# ---------------------------------------------------------------------------
-# Fake stream primitives
-# ---------------------------------------------------------------------------
-
-
-def text_block(text: str) -> SimpleNamespace:
-    return SimpleNamespace(type="text", text=text)
-
-
-def tool_use_block(tool_id: str, name: str, tool_input: dict) -> SimpleNamespace:
-    return SimpleNamespace(type="tool_use", id=tool_id, name=name, input=tool_input)
-
-
-class FakeStream:
-    """Async context manager mirroring messages.stream(...)."""
-
-    def __init__(self, blocks: list, stop_reason: str):
-        self._blocks = blocks
-        self._stop_reason = stop_reason
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *exc):
-        return False
-
-    async def __aiter__(self):
-        for block in self._blocks:
-            if block.type == "text":
-                # stream the text out as a single text_delta event
-                yield SimpleNamespace(
-                    type="content_block_delta",
-                    delta=SimpleNamespace(type="text_delta", text=block.text),
-                )
-
-    async def get_final_message(self):
-        return SimpleNamespace(content=self._blocks, stop_reason=self._stop_reason)
-
-
-class FakeMessages:
-    def __init__(self, scripted: list[tuple[list, str]]):
-        # scripted: list of (blocks, stop_reason) — one per stream() call
-        self._scripted = list(scripted)
-        self.calls: list[dict] = []
-
-    def stream(self, **kwargs):
-        self.calls.append(kwargs)
-        blocks, stop_reason = self._scripted.pop(0)
-        return FakeStream(blocks, stop_reason)
-
-
-class FakeClient:
-    def __init__(self, scripted: list[tuple[list, str]]):
-        self.messages = FakeMessages(scripted)
-
-
-class RaisingMessages:
-    def __init__(self, exc: Exception):
-        self._exc = exc
-        self.calls: list[dict] = []
-
-    def stream(self, **kwargs):
-        self.calls.append(kwargs)
-        raise self._exc
-
-
-class RaisingClient:
-    def __init__(self, exc: Exception):
-        self.messages = RaisingMessages(exc)
-
-
-async def collect(state, user_message, *, client, model="claude-x"):
-    return [e async for e in run_turn(state, user_message, client=client, model=model)]
-
+from tests.interview.fakes import (
+    FakeClient,
+    FakeStream,
+    RaisingClient,
+    collect,
+    text_block,
+    tool_use_block,
+)
 
 # Shared patch fixtures (kept short to satisfy the 120-char line limit).
 _AGE_35 = {"patch": {"members": [{"id": "m1", "age": 35}]}}
@@ -216,6 +147,22 @@ async def test_api_error_rolls_back_failed_user_message(state_with_member):
     assert state_with_member.household.members[0].id == "m1"
 
 
+async def test_api_error_rollback_duplicate_message_keeps_prior_history(state_with_member):
+    # Seed a prior successful turn whose user text is identical to the new message.
+    # The rollback must remove only the NEW occurrence, not the earlier one.
+    prior_user = {"role": "user", "content": "ok"}
+    prior_assistant = {"role": "assistant", "content": [{"type": "text", "text": "Noted."}]}
+    state_with_member.messages.extend([prior_user, prior_assistant])
+
+    client = RaisingClient(anthropic.APIConnectionError(request=None))
+    await collect(state_with_member, "ok", client=client)
+
+    # Prior history intact: the two seeded messages must still be there.
+    assert state_with_member.messages == [prior_user, prior_assistant]
+    # The failed "ok" was appended at index 2 and removed — only original 2 remain.
+    assert len(state_with_member.messages) == 2
+
+
 async def test_api_error_midloop_after_tool(state_with_member):
     # First stream succeeds with a tool_use, second stream raises.
     class MixedMessages:
@@ -244,6 +191,10 @@ async def test_api_error_midloop_after_tool(state_with_member):
     assert "done" not in types
     # History rolled back to before the failed turn (empty, since this was turn 1).
     assert state_with_member.messages == []
+    # Household facts captured by the successful tool dispatch are KEPT.
+    # The caseworker keeps the extracted data; the facts panel works in degraded mode.
+    assert state_with_member.household.members[0].age == 35
+    assert state_with_member.screening is not None
 
 
 # ---------------------------------------------------------------------------

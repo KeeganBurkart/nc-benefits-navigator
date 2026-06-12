@@ -5,13 +5,14 @@ from __future__ import annotations
 import json
 
 from interview.tools import (
+    _EXPENSE_MONEY,
     TOOLS,
     SessionState,
     compact_screening,
     dispatch,
 )
 from rules.engine import screen_all
-from rules.models import Household, Member
+from rules.models import Expenses, Household, IncomeItem, Member
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -190,3 +191,58 @@ def test_compact_screening_shape():
     assert prog["program"] in ("fns", "medicaid")
     assert isinstance(prog["reason"], str)
     assert summary["missing_fields"] == list(screening.missing_fields)
+
+
+# ---------------------------------------------------------------------------
+# Drift guards — catch model fields added without teaching the model about them
+# ---------------------------------------------------------------------------
+
+
+def test_every_cents_field_in_expenses_has_dollar_key_in_conversion_map():
+    """Every *_cents field in Expenses must have a corresponding dollar-named key
+    in _EXPENSE_MONEY.  Fails when a contributor adds an Expenses field without
+    updating the conversion mapping.
+    """
+    cents_fields = [
+        name for name in Expenses.model_fields if name.endswith("_cents")
+    ]
+    for cents_field in cents_fields:
+        dollar_key = cents_field[: -len("_cents")]
+        assert dollar_key in _EXPENSE_MONEY, (
+            f"Expenses.{cents_field} has no entry in _EXPENSE_MONEY "
+            f"(expected key '{dollar_key}').  Add it to _EXPENSE_MONEY in tools.py "
+            f"and document it in _UPDATE_HOUSEHOLD_DESCRIPTION."
+        )
+
+
+def test_every_member_field_mentioned_in_tool_description():
+    """Every field of Member (except 'id') must appear by name in the
+    update_household tool description so the model knows it exists.
+    """
+    tool = next(t for t in TOOLS if t["name"] == "update_household")
+    desc = tool["description"]
+    for field_name in Member.model_fields:
+        if field_name == "id":
+            continue
+        assert field_name in desc, (
+            f"Member.{field_name} is not mentioned in the update_household "
+            f"tool description.  Add it to _UPDATE_HOUSEHOLD_DESCRIPTION in tools.py."
+        )
+
+
+def test_every_income_field_mentioned_in_tool_description():
+    """Every field of IncomeItem (except 'id', 'member_id', 'amount_cents') must
+    appear by name in the update_household tool description.  'amount_cents' is
+    intentionally hidden from the model (it writes 'amount' in dollars instead).
+    """
+    tool = next(t for t in TOOLS if t["name"] == "update_household")
+    desc = tool["description"]
+    # Fields the model must NOT write directly (hidden by dollar-conversion convention).
+    hidden = {"id", "member_id", "amount_cents"}
+    for field_name in IncomeItem.model_fields:
+        if field_name in hidden:
+            continue
+        assert field_name in desc, (
+            f"IncomeItem.{field_name} is not mentioned in the update_household "
+            f"tool description.  Add it to _UPDATE_HOUSEHOLD_DESCRIPTION in tools.py."
+        )

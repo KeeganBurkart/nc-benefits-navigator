@@ -13,8 +13,9 @@ engine (rules/) returned via the tools in interview.tools.
 from __future__ import annotations
 
 import json
-from typing import AsyncIterator, Literal
+from typing import Any, AsyncIterator, Literal
 
+import anthropic
 from pydantic import BaseModel
 
 from interview.prompt import build_system_prompt
@@ -132,7 +133,7 @@ async def run_turn(
     state: SessionStateLike,
     user_message: str,
     *,
-    client=None,
+    client: Any | None = None,  # anthropic.AsyncAnthropic or a test fake
     model: str,
     max_tokens: int = 2048,
 ) -> AsyncIterator[Event]:
@@ -141,23 +142,22 @@ async def run_turn(
     Streams assistant text, dispatches tool calls, emits household/screening
     events after a successful update, and loops until the model ends its turn.
 
-    On any Anthropic API error the failed user message is removed from history
-    (history stays consistent and the session remains usable), a single
-    ``error`` event is emitted, and the stream stops WITHOUT a ``done`` event.
+    On any Anthropic API error the failed chat turn is removed from history so
+    history stays consistent and the session remains usable.  Facts survive;
+    the chat turn does not — household/screening keep whatever was captured by
+    tool dispatches earlier in the same turn (degraded-mode facts panel still
+    works).  A single ``error`` event is emitted and the stream stops WITHOUT a
+    ``done`` event.
     """
     if client is None:
-        import anthropic
-
         client = anthropic.AsyncAnthropic()
 
-    # Import here so a missing/odd anthropic install doesn't break import-time.
-    import anthropic
-
-    # Append the caseworker's message. Remember where, so we can roll it back on
-    # API failure and keep history consistent.
-    user_block = {"role": "user", "content": user_message}
-    state.messages.append(user_block)
+    state.messages.append({"role": "user", "content": user_message})
     _trim_history(state.messages)
+    # Rollback index captured AFTER trimming: marks the start of this turn in
+    # the (post-trim) list.  Index-based so duplicate message text never
+    # confuses it.  The new user message is always the last item after trim.
+    rollback_idx = len(state.messages) - 1
 
     try:
         while True:
@@ -208,12 +208,11 @@ async def run_turn(
         _trim_history(state.messages)
         yield DoneEvent()
 
-    except (anthropic.APIError, anthropic.APIConnectionError):
+    except anthropic.APIError:
         # Roll back the failed turn so history stays consistent and usable.
-        # Drop everything appended at/after the caseworker's message.
-        if user_block in state.messages:
-            idx = state.messages.index(user_block)
-            del state.messages[idx:]
+        # Facts survive; the chat turn does not (household/screening keep whatever
+        # was captured by tool dispatches earlier in this same turn).
+        del state.messages[rollback_idx:]
         yield ErrorEvent(message=API_ERROR_MESSAGE)
         # No done event — error terminates the stream instead.
 
