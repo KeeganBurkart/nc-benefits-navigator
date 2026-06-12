@@ -413,3 +413,111 @@ def test_missing_summary_stable_order():
         "members[m1].immigration_status",
         "members[m1].is_student",
     ]
+
+
+# ===========================================================================
+# 7. Fix: unknown fields rejected (extra="forbid")
+# ===========================================================================
+
+def test_unknown_member_field_raises():
+    """Typo in a member patch field must raise ValidationError, not silently drop."""
+    from rules.models import apply_patch
+    h = base_household()
+    with pytest.raises(pydantic.ValidationError):
+        apply_patch(h, {"members": [{"id": "m1", "agee": 99}]})
+
+
+def test_unknown_expenses_field_raises():
+    """Unknown key in an expenses patch must raise ValidationError."""
+    from rules.models import apply_patch
+    h = base_household()
+    with pytest.raises(pydantic.ValidationError):
+        apply_patch(h, {"expenses": {"typo_field": 500}})
+
+
+def test_unknown_top_level_field_raises():
+    """Unknown top-level key in patch must raise ValidationError."""
+    from rules.models import apply_patch
+    h = base_household()
+    with pytest.raises(pydantic.ValidationError):
+        apply_patch(h, {"unknown_top_level": "value"})
+
+
+def test_delete_sentinel_not_rejected_by_forbid():
+    """_delete: true must still work — _merge_list strips the sentinel before validation."""
+    from rules.models import apply_patch
+    h = base_household()
+    h2 = apply_patch(h, {"members": [{"id": "m2", "_delete": True}]})
+    ids = [m.id for m in h2.members]
+    assert "m2" not in ids
+    assert len(h2.members) == 1
+
+
+# ===========================================================================
+# 8. Fix: duplicate ids rejected
+# ===========================================================================
+
+def test_duplicate_member_ids_raise():
+    """Constructing a Household with duplicate member ids must raise ValidationError."""
+    from rules.models import Household, Member
+    with pytest.raises(pydantic.ValidationError) as exc_info:
+        Household(members=[
+            Member(id="m1", age=30),
+            Member(id="m1", age=31),
+        ])
+    assert "m1" in str(exc_info.value)
+    assert "members" in str(exc_info.value)
+
+
+def test_duplicate_income_ids_raise():
+    """Constructing a Household with duplicate income ids must raise ValidationError."""
+    from rules.models import Household, IncomeItem
+    with pytest.raises(pydantic.ValidationError) as exc_info:
+        Household(income=[
+            IncomeItem(id="i1", amount_cents=100000, frequency="monthly"),
+            IncomeItem(id="i1", amount_cents=200000, frequency="monthly"),
+        ])
+    assert "i1" in str(exc_info.value)
+    assert "income" in str(exc_info.value)
+
+
+def test_household_model_validate_with_duplicate_member_ids_raises():
+    """model_validate with a raw dict containing duplicate member ids must raise ValidationError."""
+    from rules.models import Household
+    with pytest.raises(pydantic.ValidationError) as exc_info:
+        Household.model_validate({
+            "members": [
+                {"id": "dup", "age": 10},
+                {"id": "dup", "age": 11},
+            ]
+        })
+    assert "dup" in str(exc_info.value)
+    assert "members" in str(exc_info.value)
+
+
+# ===========================================================================
+# 9. Fix: missing id in patch list item raises ValueError
+# ===========================================================================
+
+def test_patch_list_item_missing_id_raises_value_error():
+    """A patch list item without 'id' must raise ValueError with a clear message."""
+    from rules.models import apply_patch
+    h = base_household()
+    with pytest.raises((ValueError, KeyError)) as exc_info:
+        apply_patch(h, {"members": [{"age": 25}]})
+    # After fix, must be ValueError with descriptive message
+    assert isinstance(exc_info.value, ValueError)
+    assert "missing required 'id'" in str(exc_info.value)
+
+
+# ===========================================================================
+# 10. Fix: delete of absent id is a silent no-op
+# ===========================================================================
+
+def test_delete_absent_id_is_noop():
+    """Deleting an id not in the list must leave the list unchanged (silent no-op)."""
+    from rules.models import apply_patch
+    h = base_household()
+    original_ids = [m.id for m in h.members]
+    h2 = apply_patch(h, {"members": [{"id": "nonexistent", "_delete": True}]})
+    assert [m.id for m in h2.members] == original_ids

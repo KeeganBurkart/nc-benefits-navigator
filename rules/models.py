@@ -9,13 +9,15 @@ from __future__ import annotations
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Member
 # ---------------------------------------------------------------------------
 
 class Member(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     age: int | None = None
     relationship: Literal["self", "spouse", "child", "other_relative", "unrelated"] | None = None
@@ -38,6 +40,8 @@ class Member(BaseModel):
 # ---------------------------------------------------------------------------
 
 class IncomeItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str  # required — needed for list merging
     member_id: str | None = None
     kind: Literal[
@@ -70,6 +74,8 @@ class IncomeItem(BaseModel):
 # ---------------------------------------------------------------------------
 
 class Expenses(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     rent_or_mortgage_cents: int | None = None
     utilities_included: bool | None = None
     pays_heating_cooling: bool | None = None
@@ -95,11 +101,31 @@ class Expenses(BaseModel):
 # ---------------------------------------------------------------------------
 
 class Household(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     members: list[Member] = []
     income: list[IncomeItem] = []
     expenses: Expenses = Expenses()
     county: str | None = None
     purchases_and_prepares_together: bool | None = None
+
+    @model_validator(mode="after")
+    def no_duplicate_ids(self) -> "Household":
+        member_ids = [m.id for m in self.members]
+        seen: set[str] = set()
+        for mid in member_ids:
+            if mid in seen:
+                raise ValueError(f"duplicate id '{mid}' in members list")
+            seen.add(mid)
+
+        income_ids = [i.id for i in self.income]
+        seen = set()
+        for iid in income_ids:
+            if iid in seen:
+                raise ValueError(f"duplicate id '{iid}' in income list")
+            seen.add(iid)
+
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +185,12 @@ def apply_patch(household: Household, patch: dict) -> Household:
         - Matching id → update that item field-wise.
         - Unknown id → append.
         - {"id": "x", "_delete": true} → remove that item.
+        - delete of an id not present in the list is a silent no-op.
+
+    Error behaviour:
+    - Unknown fields on any model raise pydantic.ValidationError.
+    - Duplicate ids within members or income raise pydantic.ValidationError.
+    - A patch list item without an 'id' key raises ValueError.
     """
     # Start from a dict copy of the existing household
     base = household.model_dump()
@@ -186,6 +218,8 @@ def _merge_list(existing: list[dict], patch_items: list[dict]) -> list[dict]:
     order = [item["id"] for item in existing]
 
     for patch_item in patch_items:
+        if "id" not in patch_item:
+            raise ValueError("missing required 'id' in patch list item")
         pid = patch_item["id"]
         if patch_item.get("_delete"):
             by_id.pop(pid, None)
