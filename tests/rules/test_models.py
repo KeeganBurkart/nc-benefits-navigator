@@ -127,6 +127,13 @@ def test_monthly_cents_yearly_rounding():
     assert monthly_cents(item) == expected  # 8
 
 
+def test_monthly_cents_half_up_tiebreak():
+    """6 cents/year: 6 / 12 = 0.5 exactly — HALF_UP gives 1, HALF_EVEN would give 0."""
+    from rules.models import monthly_cents
+    item = make_income(amount_cents=6, frequency="yearly")
+    assert monthly_cents(item) == 1
+
+
 # ===========================================================================
 # 3. monthly_cents returns None for missing data
 # ===========================================================================
