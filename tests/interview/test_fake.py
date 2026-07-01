@@ -9,7 +9,6 @@ from __future__ import annotations
 from interview.fake import FakeLLMClient
 from interview.prompt import DISCLAIMER_SENTENCE
 from interview.tools import SessionState
-
 from tests.interview.fakes import collect
 
 

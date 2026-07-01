@@ -1,0 +1,66 @@
+# NC Benefits Navigator
+
+An open-source screening assistant for North Carolina nonprofit and social-work
+staff: a caseworker describes a client's household in plain English, and the
+tool estimates the household's likely eligibility for **FNS (SNAP/food stamps)**
+and **NC Medicaid**, with every conclusion cited to the governing policy manual
+and a printable action plan for the client. **The AI never decides
+eligibility** — a deterministic, auditable rules engine makes every
+determination; the AI only conducts the interview and records facts, all of
+which stay visible and editable on screen. **Nothing is stored**: sessions live
+in memory and vanish when they end. No database, no accounts, no client records.
+
+![NC Benefits Navigator screenshot](docs/img/screenshot.png)
+
+**Live demo:** <https://nc-benefits-navigator.fly.dev> — example data only, please.
+
+## Run it
+
+```
+docker run -p 8000:8000 -e ANTHROPIC_API_KEY=sk-... ghcr.io/keeganburkart/nc-benefits-navigator
+```
+
+Then open <http://localhost:8000>. That's the whole install.
+
+## What it screens
+
+| Program | What the engine checks | Governing manual |
+|---|---|---|
+| **FNS / SNAP** | NC's broad-based categorical eligibility (200% FPL gross test), the federal net income test, the full deduction chain (standard, 20% earned income, dependent care, child support paid, elderly/disabled medical, excess shelter with utility allowance), and the Thrifty Food Plan benefit estimate | [NC FNS Manual](https://policies.ncdhhs.gov/divisional-n-z/social-services/food-and-nutrition-services/) |
+| **NC Medicaid (MAGI)** | Per-member screening across coverage groups — children (including CHIP-level), pregnant women, parents/caretakers, and expansion adults — with the 5% MAGI disregard | [NC Medicaid manuals](https://policies.ncdhhs.gov/divisional-n-z/social-services/family-and-childrens-medicaid/) |
+
+Every reason in a result links to the specific manual section behind it — see
+[docs/rules.md](docs/rules.md) for the complete rule-by-rule reference.
+
+## Honest limitations
+
+This is a **screener, not an eligibility determination** — only a county DSS
+caseworker can determine eligibility, and the UI says so on every screen and
+every printout. Known v1 simplifications:
+
+- **Mixed-immigration-status households are simplified.** Members without a
+  qualifying status are excluded from the FNS household size, but their income
+  is counted **in full** rather than prorated per NC's rules — so estimates for
+  mixed-status households are deliberately conservative (the real benefit may
+  be higher). The result says this when it applies.
+- **The MAGI household is simplified to the whole household.** Real Medicaid
+  household composition follows tax-filing relationships; the caseworker must
+  confirm it. The tool says this in its results.
+- **No aged/blind/disabled (ABD) Medicaid.** Members 65+ are flagged for a
+  caseworker hand-off rather than screened — ABD Medicaid uses entirely
+  different rules.
+- **The parent/caretaker Medicaid limit is a percentage approximation** of NC's
+  dollar-based MAF-C need standard, and is labeled as such in the results.
+- **Homeless households are not modeled** (the shelter-deduction path assumes a
+  rent or mortgage figure).
+- English only (Spanish is the first item on the wishlist).
+
+## Docs
+
+- [Adopting this at your organization](docs/adopting.md) — for directors with no IT staff
+- [Rules reference](docs/rules.md) — every rule, its citation, and how annual updates work
+- [Contributing](docs/contributing.md) — dev setup, tests, adding a program
+
+## License
+
+[MIT](LICENSE). Not affiliated with NC DHHS.
