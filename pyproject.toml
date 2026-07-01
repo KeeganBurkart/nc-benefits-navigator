@@ -30,6 +30,8 @@ packages = ["rules", "interview", "server"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = ["eval: real-API interview evals — run manually with `uv run pytest -m eval`"]
+addopts = "-m 'not eval'"
 
 [tool.ruff]
 target-version = "py312"

@@ -154,8 +154,8 @@ async def patch_household(session_id: str, body: PatchBody):
 async def post_message(session_id: str, body: MessageBody, request: Request):
     settings = get_settings()
 
-    # --- Guard: API key ---
-    if not settings.anthropic_api_key:
+    # --- Guard: API key (not needed in fake-LLM test mode) ---
+    if not settings.anthropic_api_key and not settings.fake_llm:
         raise _error("AI assistant not configured — set ANTHROPIC_API_KEY", 503)
 
     store = get_store()
@@ -181,9 +181,14 @@ async def post_message(session_id: str, body: MessageBody, request: Request):
     # Increment message count immediately (before stream starts).
     session.message_count += 1
 
-    import anthropic as _anthropic
+    if settings.fake_llm:
+        from interview.fake import FakeLLMClient
 
-    client = _anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        client = FakeLLMClient()
+    else:
+        import anthropic as _anthropic
+
+        client = _anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
     state = session.as_interview_state()
 
     async def event_generator() -> AsyncIterator[dict]:

@@ -42,6 +42,9 @@ class Settings:
     # Pricing for rough token-cost estimation (claude-sonnet-4-6 public prices).
     price_in_per_mtok: float
     price_out_per_mtok: float
+    # Test infrastructure: NAV_FAKE_LLM=1 replays a canned conversation via
+    # interview.fake.FakeLLMClient instead of calling the Anthropic API.
+    fake_llm: bool = False
 
 
 # Module-level cache; replaced by _override in tests.
@@ -77,6 +80,7 @@ def _build_settings() -> Settings:
     port = int(os.environ.get("NAV_PORT", "8000"))
     price_in = float(os.environ.get("NAV_PRICE_IN_PER_MTOK", "3.0"))
     price_out = float(os.environ.get("NAV_PRICE_OUT_PER_MTOK", "15.0"))
+    fake_llm = _bool_env("NAV_FAKE_LLM", default=False)
     return Settings(
         anthropic_api_key=api_key,
         model=model,
@@ -87,6 +91,7 @@ def _build_settings() -> Settings:
         port=port,
         price_in_per_mtok=price_in,
         price_out_per_mtok=price_out,
+        fake_llm=fake_llm,
     )
 
 
