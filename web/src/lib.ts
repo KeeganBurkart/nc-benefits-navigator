@@ -1,0 +1,83 @@
+import type { ScreeningResult, Status } from './types'
+
+// Must match rules.engine.DISCLAIMER exactly.
+export const DISCLAIMER =
+  'This is a screening estimate, not an eligibility determination. ' +
+  'Only your county DSS can determine eligibility. Apply online at https://epass.nc.gov.'
+
+export const EPASS_URL = 'https://epass.nc.gov'
+
+export const STATUS_LABELS: Record<Status, string> = {
+  likely_eligible: 'Likely eligible',
+  likely_ineligible: 'Likely not eligible',
+  needs_more_info: 'More info needed',
+}
+
+/** Format integer cents as dollars: 29100 → "$291", 125050 → "$1,250.50". */
+export function centsToDollars(cents: number): string {
+  const dollars = cents / 100
+  return dollars.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+export interface ChecklistEntry {
+  name: string
+  why: string
+  programs: string[]
+}
+
+/** Deduplicate required documents across programs by document name. */
+export function buildChecklist(screening: ScreeningResult): ChecklistEntry[] {
+  const byName = new Map<string, ChecklistEntry>()
+  for (const program of screening.programs) {
+    for (const doc of program.required_documents) {
+      const entry = byName.get(doc.name)
+      if (entry) {
+        if (!entry.programs.includes(program.program_label)) {
+          entry.programs.push(program.program_label)
+        }
+      } else {
+        byName.set(doc.name, { name: doc.name, why: doc.why, programs: [program.program_label] })
+      }
+    }
+  }
+  return [...byName.values()]
+}
+
+// Human phrasing for missing-field dotted paths. Paths look like
+// members[<id>].<field>, income[<idx>].<field>, expenses.<field>, or <field>.
+const LEAF_QUESTIONS: Record<string, string> = {
+  age: 'How old is this person?',
+  relationship: 'How is this person related to the applicant?',
+  is_pregnant: 'Is anyone in the household pregnant?',
+  is_disabled: 'Does this person have a disability?',
+  immigration_status: "What is this person's citizenship or immigration status?",
+  is_student: 'Is this person a student?',
+  kind: 'What type of income is this?',
+  amount_cents: 'How much is this income?',
+  frequency: 'How often is this income received?',
+  hours_per_week: 'How many hours per week does this person work?',
+  rent_or_mortgage_cents: 'What is the rent or mortgage payment?',
+  utilities_included: 'Are utilities included in the rent?',
+  pays_heating_cooling: 'Does the household pay for heating or cooling?',
+  dependent_care_cents: 'How much does the household pay for child or dependent care?',
+  child_support_paid_cents: 'How much child support does anyone pay out?',
+  medical_expenses_elderly_disabled_cents:
+    'How much are medical expenses for elderly or disabled members?',
+  county: 'What NC county does the household live in?',
+  purchases_and_prepares_together: 'Does everyone buy and prepare food together?',
+  members: 'Who is in the household?',
+}
+
+export function missingFieldQuestion(path: string): string {
+  const leaf = path.split('.').pop() ?? path
+  const question = LEAF_QUESTIONS[leaf]
+  if (!question) return path
+  const idMatch = path.match(/^members\[([^\]]+)\]\./)
+  if (idMatch) return `${question} (${idMatch[1]})`
+  return question
+}
