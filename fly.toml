@@ -1,0 +1,28 @@
+# Fly.io demo deployment for NC Benefits Navigator.
+#
+# Setup (one time):
+#   fly apps create nc-benefits-navigator
+#   fly secrets set ANTHROPIC_API_KEY=sk-...   # never put the key in this file
+#   fly deploy
+app = "nc-benefits-navigator"
+primary_region = "atl"
+
+[build]
+dockerfile = "Dockerfile"
+
+[env]
+NAV_DEMO_MODE = "true"
+NAV_MAX_MESSAGES_PER_SESSION = "40"
+NAV_DAILY_BUDGET_USD = "10.0"
+NAV_SESSION_TTL_MINUTES = "60"
+
+[http_service]
+internal_port = 8000
+force_https = true
+auto_stop_machines = "stop"
+auto_start_machines = true
+min_machines_running = 0
+
+[[vm]]
+size = "shared-cpu-1x"
+memory = "512mb"
