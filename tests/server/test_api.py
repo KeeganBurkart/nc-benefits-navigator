@@ -405,6 +405,48 @@ async def test_message_sse_error_event(client_with_key, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_message_sse_midstream_exception_yields_error_event(client_with_key, monkeypatch):
+    async def exploding_run_turn(state, message, *, client=None, model="x", max_tokens=2048):
+        yield TextEvent(delta="partial")
+        raise RuntimeError("boom mid-stream")
+
+    monkeypatch.setattr(routes_module, "_run_turn", exploding_run_turn)
+
+    r = await client_with_key.post("/api/session")
+    sid = r.json()["session_id"]
+    r2 = await client_with_key.post(
+        f"/api/session/{sid}/message",
+        json={"message": "test"},
+    )
+    assert r2.status_code == 200
+    events = _parse_sse(r2.content)
+    error_events = [e for e in events if e["event"] == "error"]
+    assert len(error_events) == 1
+    assert "boom mid-stream" in error_events[0]["data"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_message_validation_422_error_envelope(client_with_key):
+    r = await client_with_key.post("/api/session")
+    sid = r.json()["session_id"]
+    r2 = await client_with_key.post(
+        f"/api/session/{sid}/message",
+        json={"message": ""},
+    )
+    assert r2.status_code == 422
+    detail = r2.json()["detail"]
+    assert isinstance(detail, dict)
+    assert "message" in detail["error"]
+
+    r3 = await client_with_key.post(
+        f"/api/session/{sid}/message",
+        json={"message": "x" * 2001},
+    )
+    assert r3.status_code == 422
+    assert "message" in r3.json()["detail"]["error"]
+
+
+@pytest.mark.asyncio
 async def test_message_404_unknown_session(client_with_key):
     r = await client_with_key.post(
         "/api/session/no-such-session/message",

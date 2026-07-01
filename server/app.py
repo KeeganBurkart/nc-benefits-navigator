@@ -26,6 +26,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -57,6 +58,17 @@ class _DemoHeaderMiddleware(BaseHTTPMiddleware):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="NC Benefits Navigator", version="1.0.0")
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error(request: Request, exc: RequestValidationError):
+        errors = exc.errors()
+        if errors:
+            first = errors[0]
+            loc = ".".join(str(p) for p in first.get("loc", ())) or "<root>"
+            msg = f"{loc}: {first.get('msg', 'invalid')}"
+        else:
+            msg = "invalid request"
+        return JSONResponse(status_code=422, content={"detail": {"error": msg}})
 
     settings = get_settings()
 

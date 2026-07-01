@@ -203,6 +203,11 @@ async def post_message(session_id: str, body: MessageBody, request: Request):
                     "event": event.type,
                     "data": json.dumps(event_data),
                 }
+        except Exception as exc:  # noqa: BLE001 — stream already started; report via SSE
+            yield {
+                "event": "error",
+                "data": json.dumps({"type": "error", "message": str(exc)}),
+            }
         finally:
             # Charge tokens after stream completes (best-effort; rough estimate).
             out_tokens = max(output_text_chars // 4, 1)
