@@ -53,10 +53,13 @@ _TURN_2_PATCH = {
     }
 }
 
+# Includes markdown so the E2E locks the chat renderer (bold, bullets, break).
 _FINAL_SUMMARY = (
-    "Here are the screening results. FNS (Food and Nutrition Services / SNAP): "
-    "likely eligible, with an estimated benefit shown in the results panel. "
-    "NC Medicaid: likely eligible. You can print the action plan for the client. "
+    "Here are the screening results:\n\n"
+    "- FNS (Food and Nutrition Services / SNAP): **likely eligible**, with an "
+    "estimated benefit shown in the results panel.\n"
+    "- NC Medicaid: **likely eligible**.\n\n"
+    "You can print the action plan for the client. "
     f"{DISCLAIMER_SENTENCE}"
 )
 

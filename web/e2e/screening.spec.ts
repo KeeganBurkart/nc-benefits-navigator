@@ -28,9 +28,14 @@ test('chat → facts panel → edit → results → print plan', async ({ page }
   // Turn 3: resolved summary with the exact disclaimer sentence.
   await input.fill("That's everything")
   await send.click()
-  await expect(page.locator('.msg-assistant').last()).toContainText(
+  const summary = page.locator('.msg-assistant').last()
+  await expect(summary).toContainText(
     'This is a screening estimate, not an eligibility determination.',
   )
+  // Markdown renders as elements, never as literal ** markers.
+  await expect(summary.locator('strong').first()).toHaveText('likely eligible')
+  await expect(summary.locator('ul li')).toHaveCount(2)
+  await expect(summary).not.toContainText('**')
   await expect(page.locator('.pill').first()).toHaveText('Likely eligible')
   await expect(page.locator('.benefit')).toContainText('/month estimated')
 

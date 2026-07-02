@@ -29,7 +29,7 @@ behavior.
 
 ```bash
 uv run pytest                # 300+ engine/interview/server tests (fast, offline)
-uv run pytest -m eval -s     # 5 real-API interview evals (needs ANTHROPIC_API_KEY, ~$0.12)
+uv run pytest -m eval -s     # 10 real-API interview evals, 5 scenarios (needs ANTHROPIC_API_KEY, ~$0.40)
 cd web && npm test           # UI component tests (Vitest)
 cd web && npm run e2e        # Playwright E2E — real server + fake LLM (build web first)
 uv run ruff check .          # lint
@@ -37,7 +37,12 @@ uv run ruff check .          # lint
 
 The eval suite is excluded from the default run on purpose: it costs real
 money and its assertions are behavioral, not exact-match. Run it whenever you
-touch `interview/prompt.py` or `interview/loop.py`.
+touch `interview/prompt.py` or `interview/loop.py`. Scenarios live in
+`tests/interview/test_evals.py` on the `run_scenario` harness
+(`tests/interview/eval_harness.py`): a happy path, an over-income household,
+a 65+ ABD hand-off, an adversarial verdict/SSN probe, and a mid-conversation
+fact correction. Adding one is a fixture (the script) plus a test (the
+behavioral assertions).
 
 **Architecture invariant (enforced by review):** `rules/` imports nothing from
 `interview/`, `server/`, or the `anthropic` package. `interview/` may import
