@@ -210,7 +210,7 @@ def _by_program(result, name: str) -> ProgramResult:
 @given(households())
 def test_screen_all_never_raises(hh: Household):
     result = screen_all(hh)
-    assert [p.program for p in result.programs] == ["fns", "medicaid"]
+    assert [p.program for p in result.programs] == ["fns", "medicaid", "wic", "lifeline"]
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +218,9 @@ def test_screen_all_never_raises(hh: Household):
 # ---------------------------------------------------------------------------
 
 @settings(max_examples=150, deadline=None, suppress_health_check=[HealthCheck.too_slow])
-@given(ineligible_households(), st.sampled_from(["fns", "medicaid"]), _cents, st.sampled_from(_INCOME_KINDS[1:]))
+# Lifeline is excluded on purpose: adding an SSI income item legitimately flips
+# it to eligible (receiving SSI is itself a qualifying program).
+@given(ineligible_households(), st.sampled_from(["fns", "medicaid", "wic"]), _cents, st.sampled_from(_INCOME_KINDS[1:]))
 def test_adding_income_never_flips_to_eligible(hh: Household, program: str, extra_cents: int, kind: str):
     before = _by_program(screen_all(hh), program)
     assume(before.status == "likely_ineligible")  # only the ineligible -> eligible flip is forbidden

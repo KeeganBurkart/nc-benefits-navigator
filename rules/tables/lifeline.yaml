@@ -1,0 +1,14 @@
+# FCC Lifeline (phone/internet discount) — statutory figures.
+#
+# Income standard: 135% of the federal poverty guidelines
+# (47 CFR 54.409(a)(1)); dollars are computed from fpl.yaml. Support amount:
+# $9.25/month for broadband-capable service (47 CFR 54.403(a)(1)).
+# The effective window tracks fpl.yaml, since the dollar limits move when the
+# poverty guidelines do; the percentages themselves are set by regulation.
+source_url: "https://www.ecfr.gov/current/title-47/chapter-I/subchapter-B/part-54/subpart-E/section-54.409"
+source_name: "47 CFR 54.409(a)(1) income standard (135% of poverty guidelines); 47 CFR 54.403(a)(1) support amount"
+effective_from: "2026-01-13"
+effective_to: "2027-03-31"
+values:
+  percent_of_fpl: 135
+  monthly_discount_cents: 925  # $9.25

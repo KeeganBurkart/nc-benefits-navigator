@@ -52,9 +52,9 @@ def test_returns_screening_result():
     assert isinstance(result, ScreeningResult)
 
 
-def test_program_order_is_fns_then_medicaid():
+def test_program_order_is_stable():
     result = screen_all(_household())
-    assert [p.program for p in result.programs] == ["fns", "medicaid"]
+    assert [p.program for p in result.programs] == ["fns", "medicaid", "wic", "lifeline"]
 
 
 def test_disclaimer_is_exact_string():
@@ -104,7 +104,7 @@ def test_missing_fields_first_seen_order_across_programs():
 
 def test_empty_household_does_not_raise():
     result = screen_all(Household())
-    assert [p.program for p in result.programs] == ["fns", "medicaid"]
+    assert [p.program for p in result.programs] == ["fns", "medicaid", "wic", "lifeline"]
     assert all(p.status == "needs_more_info" for p in result.programs)
 
 
@@ -114,7 +114,7 @@ def test_json_serializable_roundtrip():
     parsed = json.loads(blob)
     assert set(parsed) == {"programs", "household", "missing_fields", "generated_disclaimer"}
     assert parsed["generated_disclaimer"] == _EXACT_DISCLAIMER
-    assert [p["program"] for p in parsed["programs"]] == ["fns", "medicaid"]
+    assert [p["program"] for p in parsed["programs"]] == ["fns", "medicaid", "wic", "lifeline"]
     # model_dump() is also a plain dict structure.
     dumped = result.model_dump()
     assert dumped["programs"][0]["program"] == "fns"

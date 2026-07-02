@@ -20,6 +20,12 @@ household:
 # Medicaid (size 1, countable wages 600000):
 #   highest reachable limit is the child CHIP ceiling (211%+5%, size1) = 287280; 600000 > 287280
 #   -> fail-fast: no one can qualify -> likely_ineligible.
+# WIC: no pregnant member and no child under 5 (all ages/pregnancy known) -> fails
+#   the categorical test -> likely_ineligible.
+# Lifeline: 135% FPL(1) = round_half_up(133000 * 1.35 = 179550.00) = 179550;
+#   600000 > 179550, no SSI, and FNS/Medicaid both likely_ineligible -> likely_ineligible.
 expected:
   fns: {status: likely_ineligible}
   medicaid: {status: likely_ineligible}
+  wic: {status: likely_ineligible}
+  lifeline: {status: likely_ineligible}

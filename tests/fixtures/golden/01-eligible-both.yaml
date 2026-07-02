@@ -27,6 +27,12 @@ household:
 #   allotment = max(3) 78500 - round_half_up(0.3 * 8700 = 2610) = 75890.
 # Medicaid (household size 3, countable wages 130000):
 #   child6-18 limit (107%+5%, size3) = 254987; 130000 <= 254987 -> m2 (age 7) eligible -> household likely_eligible.
+# WIC: categorical via m3 (age 4 < 5). size 3 (no pregnancies); 185% FPL(3) =
+#   round_half_up(227667 * 1.85 = 421183.95) = 421184; 130000 <= 421184 -> likely_eligible.
+# Lifeline: 135% FPL(3) = round_half_up(227667 * 1.35 = 307350.45) = 307350;
+#   130000 <= 307350 -> likely_eligible via income, $9.25/mo discount.
 expected:
   fns: {status: likely_eligible, estimated_benefit_cents: 75890}
   medicaid: {status: likely_eligible}
+  wic: {status: likely_eligible}
+  lifeline: {status: likely_eligible, estimated_benefit_cents: 925}

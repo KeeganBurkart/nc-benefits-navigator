@@ -1,0 +1,14 @@
+# WIC income eligibility — statutory percent-of-FPL multiplier.
+#
+# WIC's income limit is 185% of the federal poverty guidelines
+# (7 CFR 246.7(d)(1)). USDA publishes the resulting dollar chart each year as
+# the "WIC Income Eligibility Guidelines" (effective July 1); those figures
+# are exactly 185% of the FPL values already stored in fpl.yaml, so this file
+# stores only the multiplier and the engine computes dollars from fpl.yaml.
+# The effective window tracks the USDA IEG cycle (July 1 -> June 30).
+source_url: "https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/subchapter-A/part-246/subpart-C/section-246.7"
+source_name: "7 CFR 246.7(d)(1) WIC income eligibility standard (185% of poverty guidelines), 2026-2027 IEG cycle"
+effective_from: "2026-07-01"
+effective_to: "2027-06-30"
+values:
+  percent_of_fpl: 185

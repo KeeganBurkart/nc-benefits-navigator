@@ -36,6 +36,8 @@ _REQUIRED_COVERAGE = [
     "hourly",                 # hourly-wage worker
     "large",                  # large household (7+)
     "ssi",                    # SSI recipient divergence
+    "wic",                    # WIC categorical + adjunctive income eligibility
+    "lifeline",               # Lifeline qualifying-program pathway
 ]
 
 
@@ -80,8 +82,8 @@ def test_golden_fixture(path: Path):
     by_program = {p.program: p for p in result.programs}
     expected = data["expected"]
 
-    for program in ("fns", "medicaid"):
-        exp = expected[program]
+    for program, exp in expected.items():
+        assert program in by_program, f"{path.name}: expects unknown program {program!r}"
         got = by_program[program]
         assert got.status == exp["status"], (
             f"{path.name}: {program} status {got.status!r} != expected {exp['status']!r}"

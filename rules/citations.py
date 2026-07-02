@@ -19,8 +19,10 @@ URL provenance (verified live at authoring time, 2026-06-12):
 - NC Family & Children's Medicaid sections live at the same host as
   ``/document/ma-NNNN-<slug>/`` landing pages.
 All URLs below returned HTTP 200 when fetched with a browser User-Agent
-during implementation. Every entry points at a real NC DHHS manual section —
-there are no federal fallbacks in this registry.
+during implementation. FNS and Medicaid entries point at NC DHHS manual
+sections. WIC and Lifeline are governed directly by federal regulation (USDA
+7 CFR 246 and FCC 47 CFR 54), so those entries cite the eCFR — the primary
+authority, not a fallback (eCFR URLs verified live 2026-07-01).
 """
 
 from __future__ import annotations
@@ -29,6 +31,17 @@ from dataclasses import dataclass
 
 _FNS_MANUAL = "NC FNS Manual"
 _MEDICAID_MANUAL = "NC Medicaid Family & Children's Medicaid Manual"
+_WIC_REGS = "Federal WIC Regulations"
+_LIFELINE_REGS = "FCC Lifeline Rules"
+
+_WIC_URL = (
+    "https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/"
+    "subchapter-A/part-246/subpart-C/section-246.7"
+)
+_LIFELINE_URL = (
+    "https://www.ecfr.gov/current/title-47/chapter-I/subchapter-B/"
+    "part-54/subpart-E/section-54.409"
+)
 
 
 @dataclass(frozen=True)
@@ -177,6 +190,43 @@ _REGISTRY: dict[str, Citation] = {
         section="MA-3330",
         title="Alien Requirements (qualified non-citizen eligibility)",
         url="https://policies.ncdhhs.gov/document/ma-3330-alien-requirements/",
+    ),
+    # ---- WIC (federal regulations — WIC eligibility is set by USDA) ------
+    "wic.categorical": Citation(
+        rule_id="wic.categorical",
+        manual=_WIC_REGS,
+        section="7 CFR 246.7(c)",
+        title="Certification of participants (categories: pregnant/postpartum women, infants, children under 5)",
+        url=_WIC_URL,
+    ),
+    "wic.income": Citation(
+        rule_id="wic.income",
+        manual=_WIC_REGS,
+        section="7 CFR 246.7(d)",
+        title="Certification of participants (income eligibility, 185% of poverty guidelines)",
+        url=_WIC_URL,
+    ),
+    "wic.adjunctive": Citation(
+        rule_id="wic.adjunctive",
+        manual=_WIC_REGS,
+        section="7 CFR 246.7(d)(2)(vi)",
+        title="Certification of participants (adjunctive income eligibility via Medicaid/SNAP/TANF enrollment)",
+        url=_WIC_URL,
+    ),
+    # ---- Lifeline (federal regulations — FCC program) --------------------
+    "lifeline.income": Citation(
+        rule_id="lifeline.income",
+        manual=_LIFELINE_REGS,
+        section="47 CFR 54.409(a)(1)",
+        title="Consumer qualification for Lifeline (income at or below 135% of poverty guidelines)",
+        url=_LIFELINE_URL,
+    ),
+    "lifeline.qualifying_program": Citation(
+        rule_id="lifeline.qualifying_program",
+        manual=_LIFELINE_REGS,
+        section="47 CFR 54.409(a)(2)",
+        title="Consumer qualification for Lifeline (participation in SNAP, Medicaid, SSI, or other programs)",
+        url=_LIFELINE_URL,
     ),
     # ---- Document / verification requirements ---------------------------
     "doc.identity": Citation(

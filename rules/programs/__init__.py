@@ -10,10 +10,12 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from rules.models import Household
-from rules.programs import fns, medicaid
+from rules.programs import fns, lifeline, medicaid, wic
 from rules.programs.types import ProgramResult
 
 PROGRAMS: dict[str, Callable[[Household], ProgramResult]] = {
     "fns": fns.evaluate,
     "medicaid": medicaid.evaluate,
+    "wic": wic.evaluate,
+    "lifeline": lifeline.evaluate,
 }

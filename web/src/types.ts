@@ -73,7 +73,7 @@ export interface DocumentRequirement {
 }
 
 export interface ProgramResult {
-  program: 'fns' | 'medicaid'
+  program: 'fns' | 'medicaid' | 'wic' | 'lifeline'
   program_label: string
   status: Status
   reasons: Reason[]

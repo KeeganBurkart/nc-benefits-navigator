@@ -28,24 +28,31 @@ screener doesn't apply it.
 | `fns.household_composition` | Household Composition | [NC FNS Manual FNS 210](https://policies.ncdhhs.gov/document/fns-210-household-composition/) | — |
 | `fns.immigration` | Non-Citizen Requirements | [NC FNS Manual FNS 227](https://policies.ncdhhs.gov/document/fns-227-non-citizen-requirements/) | — |
 | `fns.net_income` | Rules for Budgeting Income (net income test) | [NC FNS Manual FNS 305](https://policies.ncdhhs.gov/document/fns-305-rules-for-budgeting-income/) | rules/tables/fns.yaml |
+| `lifeline.income` | Consumer qualification for Lifeline (income at or below 135% of poverty guidelines) | [FCC Lifeline Rules 47 CFR 54.409(a)(1)](https://www.ecfr.gov/current/title-47/chapter-I/subchapter-B/part-54/subpart-E/section-54.409) | rules/tables/lifeline.yaml + fpl.yaml |
+| `lifeline.qualifying_program` | Consumer qualification for Lifeline (participation in SNAP, Medicaid, SSI, or other programs) | [FCC Lifeline Rules 47 CFR 54.409(a)(2)](https://www.ecfr.gov/current/title-47/chapter-I/subchapter-B/part-54/subpart-E/section-54.409) | rules/tables/lifeline.yaml |
 | `medicaid.child` | Classification and Evaluation (Medicaid for Infants and Children coverage groups) | [NC Medicaid Family & Children's Medicaid Manual MA-3415](https://policies.ncdhhs.gov/document/ma-3415-classification-and-evaluation/) | rules/tables/medicaid.yaml + fpl.yaml |
 | `medicaid.expansion_adult` | MAGI Adult (Medicaid Expansion) | [NC Medicaid Family & Children's Medicaid Manual MA-3236](https://policies.ncdhhs.gov/document/ma-3236-magi-adult-medicaid-expansion/) | rules/tables/medicaid.yaml + fpl.yaml |
 | `medicaid.immigration` | Alien Requirements (qualified non-citizen eligibility) | [NC Medicaid Family & Children's Medicaid Manual MA-3330](https://policies.ncdhhs.gov/document/ma-3330-alien-requirements/) | — |
 | `medicaid.magi_income` | Modified Adjusted Gross Income (MAGI) methodology | [NC Medicaid Family & Children's Medicaid Manual MA-3306](https://policies.ncdhhs.gov/document/ma-3306-modified-adjusted-gross-income-magi/) | rules/tables/medicaid.yaml |
 | `medicaid.parent_caretaker` | Caretaker Relatives / Kinship | [NC Medicaid Family & Children's Medicaid Manual MA-3235](https://policies.ncdhhs.gov/document/ma-3235-caretaker-relatives-kinship/) | rules/tables/medicaid.yaml + fpl.yaml |
 | `medicaid.pregnant` | Pregnant Woman Coverage | [NC Medicaid Family & Children's Medicaid Manual MA-3240](https://policies.ncdhhs.gov/document/ma-3240-pregnant-woman-coverage/) | rules/tables/medicaid.yaml + fpl.yaml |
+| `wic.adjunctive` | Certification of participants (adjunctive income eligibility via Medicaid/SNAP/TANF enrollment) | [Federal WIC Regulations 7 CFR 246.7(d)(2)(vi)](https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/subchapter-A/part-246/subpart-C/section-246.7) | — |
+| `wic.categorical` | Certification of participants (categories: pregnant/postpartum women, infants, children under 5) | [Federal WIC Regulations 7 CFR 246.7(c)](https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/subchapter-A/part-246/subpart-C/section-246.7) | — |
+| `wic.income` | Certification of participants (income eligibility, 185% of poverty guidelines) | [Federal WIC Regulations 7 CFR 246.7(d)](https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/subchapter-A/part-246/subpart-C/section-246.7) | rules/tables/wic.yaml + fpl.yaml |
 
 ## Current table versions
 
 - `rules/tables/fpl.yaml` — HHS ASPE 2026 Poverty Guidelines (48 contiguous states & DC); Federal Register 2026-01-15, FR Doc. 2026-00755 (effective 2026-01-13 → 2027-03-31)
 - `rules/tables/fns.yaml` — USDA FNS SNAP FY2026 COLA Memo (effective 2025-10-01), 48 States & DC (effective 2025-10-01 → 2026-09-30)
 - `rules/tables/medicaid.yaml` — NCDHHS MA-3321 MAGI Medicaid & Medicaid Expansion Income Limits (effective 2026-04-01) (effective 2026-04-01 → 2027-03-31)
+- `rules/tables/wic.yaml` — 7 CFR 246.7(d)(1) WIC income eligibility standard (185% of poverty guidelines), 2026-2027 IEG cycle (effective 2026-07-01 → 2027-06-30)
+- `rules/tables/lifeline.yaml` — 47 CFR 54.409(a)(1) income standard (135% of poverty guidelines); 47 CFR 54.403(a)(1) support amount (effective 2026-01-13 → 2027-03-31)
 
 ## Updating the annual numbers
 
 The federal government adjusts these figures every year: FPL guidelines in
 January, SNAP cost-of-living adjustments effective October 1. The engine's
-numbers live in three YAML files — **updating them is a data pull request,
+numbers live in five YAML files — **updating them is a data pull request,
 not a code change.**
 
 1. Get the new source documents:
@@ -54,6 +61,11 @@ not a code change.**
      fiscal year (linked from `rules/tables/fns.yaml`).
    - Medicaid: NC DHHS MAGI percentage limits (linked from
      `rules/tables/medicaid.yaml`) — these change rarely.
+   - WIC and Lifeline (`rules/tables/wic.yaml`, `rules/tables/lifeline.yaml`)
+     store statutory percent-of-FPL multipliers and the Lifeline support
+     amount; their dollar limits move automatically with `fpl.yaml`. Bump
+     their `effective_from`/`effective_to` each cycle (WIC's IEG year runs
+     July 1 → June 30) and confirm the regulations haven't changed.
 2. Edit the YAML file(s): update every figure under `values:` (all money is
    **integer cents**), update `source_url`/`source_name`, and set the new
    `effective_from` / `effective_to` dates. The loader refuses to serve a

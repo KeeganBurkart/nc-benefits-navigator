@@ -2,8 +2,9 @@
 
 An open-source screening assistant for North Carolina nonprofit and social-work
 staff: a caseworker describes a client's household in plain English, and the
-tool estimates the household's likely eligibility for **FNS (SNAP/food stamps)**
-and **NC Medicaid**, with every conclusion cited to the governing policy manual
+tool estimates the household's likely eligibility for **FNS (SNAP/food stamps)**,
+**NC Medicaid**, **WIC**, and the **Lifeline phone/internet discount**, with
+every conclusion cited to the governing policy manual
 and a printable action plan for the client. **The AI never decides
 eligibility** — a deterministic, auditable rules engine makes every
 determination; the AI only conducts the interview and records facts, all of
@@ -28,6 +29,8 @@ Then open <http://localhost:8000>. That's the whole install.
 |---|---|---|
 | **FNS / SNAP** | NC's broad-based categorical eligibility (200% FPL gross test), the federal net income test, the full deduction chain (standard, 20% earned income, dependent care, child support paid, elderly/disabled medical, excess shelter with utility allowance), and the Thrifty Food Plan benefit estimate | [NC FNS Manual](https://policies.ncdhhs.gov/divisional-n-z/social-services/food-and-nutrition-services/) |
 | **NC Medicaid (MAGI)** | Per-member screening across coverage groups — children (including CHIP-level), pregnant women, parents/caretakers, and expansion adults — with the 5% MAGI disregard | [NC Medicaid manuals](https://policies.ncdhhs.gov/divisional-n-z/social-services/family-and-childrens-medicaid/) |
+| **WIC** | Categorical test (pregnant member or child under 5, counting each pregnancy as an extra household member) plus the 185% FPL gross income test, with adjunctive income eligibility when the household screens FNS- or Medicaid-eligible | [7 CFR 246.7](https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/subchapter-A/part-246/subpart-C/section-246.7) |
+| **Lifeline (phone/internet)** | The 135% FPL gross income test, plus the qualifying-program pathway (reported SSI income, or an FNS/Medicaid-eligible screen), with the $9.25/month support amount | [47 CFR 54.409](https://www.ecfr.gov/current/title-47/chapter-I/subchapter-B/part-54/subpart-E/section-54.409) |
 
 Every reason in a result links to the specific manual section behind it — see
 [docs/rules.md](docs/rules.md) for the complete rule-by-rule reference.
@@ -53,6 +56,12 @@ every printout. Known v1 simplifications:
   dollar-based MAF-C need standard, and is labeled as such in the results.
 - **Homeless households are not modeled** (the shelter-deduction path assumes a
   rent or mortgage figure).
+- **WIC's postpartum/breastfeeding window is not tracked.** The tool only sees
+  current pregnancies and ages, so a recently-pregnant member may screen
+  ineligible; the result tells the caseworker to ask a WIC office.
+- **WIC and Lifeline "adjunctive" results are contingent.** Enrollment in
+  Medicaid or FNS — not a screening — is what actually confers automatic
+  eligibility; the results word this as "if approved there."
 - English only (Spanish is the first item on the wishlist).
 
 ## Docs

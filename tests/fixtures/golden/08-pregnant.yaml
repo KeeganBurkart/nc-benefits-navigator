@@ -25,6 +25,12 @@ household:
 #   allotment = max(1) 29800 - round_half_up(0.3 * 32700 = 9810) = 19990.
 # Medicaid (size 1, countable wages 160000):
 #   Pregnant Women limit (196%+5%, size1) = 267330; 160000 <= 267330 -> pregnant adult eligible -> likely_eligible.
+# WIC: categorical via pregnancy. Size counts the unborn child: 1 member + 1 pregnancy = 2.
+#   185% FPL(2) = round_half_up(180333 * 1.85 = 333616.05) = 333616; 160000 <= 333616 -> likely_eligible.
+# Lifeline: household size 1 (unborn not counted); 135% FPL(1) = 179550;
+#   160000 <= 179550 -> likely_eligible via income, $9.25/mo discount.
 expected:
   fns: {status: likely_eligible, estimated_benefit_cents: 19990}
   medicaid: {status: likely_eligible}
+  wic: {status: likely_eligible}
+  lifeline: {status: likely_eligible, estimated_benefit_cents: 925}

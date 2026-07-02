@@ -59,6 +59,10 @@ Programs are pluggable. Each one is a single pure function.
    `rules/programs/types.py` for the result contract: status, cited reasons,
    documents, missing fields). Model it on `fns.py` — decompose into phase
    helpers, all money in integer cents, `Decimal` + `ROUND_HALF_UP` only.
+   A program may consult other programs' results (see `wic.py`/`lifeline.py`
+   adjunctive checks — they call `fns.evaluate`/`medicaid.evaluate` directly);
+   that stays pure and deterministic, but word such reasons as contingent on
+   actual approval, since a screen is not enrollment.
 2. Put every annual figure in a new `rules/tables/yourprogram.yaml` with
    `source_url`, `effective_from`/`effective_to` — never hardcode numbers.
 3. Register every rule you apply in `rules/citations.py` (each reason must

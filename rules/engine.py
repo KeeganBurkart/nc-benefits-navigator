@@ -2,7 +2,7 @@
 single screening result the API/UI consume.
 
 This module is the one public entry point for screening. It runs the programs
-in the registry in a stable order (FNS then Medicaid), echoes the household
+in the registry in a stable order (FNS, Medicaid, WIC, Lifeline), echoes the household
 back, unions the per-program missing-field lists (deduped, first-seen order),
 and attaches the fixed legal disclaimer.
 
@@ -23,7 +23,7 @@ from rules.programs.types import ProgramResult
 
 # The programs run in this exact order; the result list mirrors it.
 # IMPORTANT: _PROGRAM_ORDER must stay in sync with PROGRAMS keys.
-_PROGRAM_ORDER = ("fns", "medicaid")
+_PROGRAM_ORDER = ("fns", "medicaid", "wic", "lifeline")
 assert set(_PROGRAM_ORDER) == set(PROGRAMS), (
     f"_PROGRAM_ORDER {set(_PROGRAM_ORDER)} out of sync with PROGRAMS {set(PROGRAMS)}"
 )
@@ -49,7 +49,7 @@ class ScreeningResult(BaseModel):
 def screen_all(household: Household) -> ScreeningResult:
     """Screen ``household`` against every program and assemble the result.
 
-    The ``programs`` list is in ``_PROGRAM_ORDER`` (fns then medicaid).
+    The ``programs`` list is in ``_PROGRAM_ORDER``.
     ``missing_fields`` is the union of every program's ``missing_fields``,
     deduped, in first-seen order across programs.
     """

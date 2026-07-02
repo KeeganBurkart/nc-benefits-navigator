@@ -1,0 +1,40 @@
+name: wic-adjunctive-lifeline-via-medicaid
+description: "Mother and toddler over the WIC 185% and Lifeline 135% income limits, but the child qualifies for CHIP-level Medicaid — WIC via adjunctive income eligibility, Lifeline via a qualifying program."
+verified: false
+household:
+  members:
+    - {id: m1, age: 30, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+    - {id: m2, age: 3, relationship: child, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
+  income:
+    - {id: i1, member_id: m1, kind: wages, amount_cents: 350000, frequency: monthly}
+  expenses:
+    rent_or_mortgage_cents: 100000
+    utilities_included: false
+    pays_heating_cooling: true
+    dependent_care_cents: 0
+    child_support_paid_cents: 0
+    medical_expenses_elderly_disabled_cents: 0
+  county: New Hanover
+  purchases_and_prepares_together: true
+# FNS (size 2, all earned wages):
+#   gross = 350000; gross 200% limit (size 2) = 360667 -> passes gross test.
+#   deductions: standard(1-2) 20900 + earned 20% of 350000 = 70000
+#     shelter: rent 100000 + SUA(2) 69900 = 169900; income_after_other = 350000 - 90900 = 259100; half = 129550
+#       excess = 169900 - 129550 = 40350 (under the 74400 cap) = 40350
+#     total deductions = 20900 + 70000 + 40350 = 131250
+#   net = 350000 - 131250 = 218750; net limit (size 2) = 176300; 218750 > 176300 -> FAILS net test -> likely_ineligible.
+# Medicaid (size 2, countable wages 350000):
+#   m2 (age 3, band 1-5): base limit (141%+5%) of FPL(2) 180333 = round_half_up(180333*1.46) = 263286; 350000 > 263286.
+#     CHIP ceiling (211%+5%) = round_half_up(180333*2.16 = 389519.28) = 389519; 350000 <= 389519 -> m2 eligible (CHIP level).
+#   m1 (age 30): parent/caretaker (33%+5%) = 68527 -> no; expansion (138%+5%) = 257876 -> no.
+#   -> household likely_eligible via m2.
+# WIC: categorical via m2 (age 3). Size 2 (no pregnancies); 185% FPL(2) =
+#   round_half_up(180333 * 1.85 = 333616.05) = 333616; 350000 > 333616 -> over the income limit,
+#   BUT the household screens likely_eligible for Medicaid -> adjunctive income eligibility -> likely_eligible.
+# Lifeline: 135% FPL(2) = round_half_up(180333 * 1.35 = 243449.55) = 243450; 350000 > 243450,
+#   no SSI, but Medicaid screens likely_eligible (a qualifying program) -> likely_eligible, $9.25/mo discount.
+expected:
+  fns: {status: likely_ineligible}
+  medicaid: {status: likely_eligible}
+  wic: {status: likely_eligible}
+  lifeline: {status: likely_eligible, estimated_benefit_cents: 925}

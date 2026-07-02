@@ -37,7 +37,9 @@ test('chat → facts panel → edit → results → print plan', async ({ page }
   await expect(summary.locator('ul li')).toHaveCount(2)
   await expect(summary).not.toContainText('**')
   await expect(page.locator('.pill').first()).toHaveText('Likely eligible')
-  await expect(page.locator('.benefit')).toContainText('/month estimated')
+  // Four program cards now: FNS, Medicaid, WIC, Lifeline.
+  await expect(page.locator('.pill')).toHaveCount(4)
+  await expect(page.locator('.benefit').first()).toContainText('/month estimated')
 
   // Edit an income amount in place → results update from the server.
   await page.getByLabel('amount of i1').fill('5000')

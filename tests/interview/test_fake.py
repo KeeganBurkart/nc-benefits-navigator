@@ -31,7 +31,14 @@ async def test_fake_conversation_reaches_resolved_screening():
 
     assert state.screening is not None
     statuses = {p.program: p.status for p in state.screening.programs}
-    assert statuses == {"fns": "likely_eligible", "medicaid": "likely_eligible"}
+    # Single 34-year-old, not pregnant: no WIC category; $1,200.50 is under the
+    # size-1 Lifeline 135% FPL limit.
+    assert statuses == {
+        "fns": "likely_eligible",
+        "medicaid": "likely_eligible",
+        "wic": "likely_ineligible",
+        "lifeline": "likely_eligible",
+    }
     assert state.screening.missing_fields == []
 
     # A fourth message past the script must not crash.

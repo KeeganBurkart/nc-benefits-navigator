@@ -70,7 +70,7 @@ class ProgramResult(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    program: Literal["fns", "medicaid"]
+    program: Literal["fns", "medicaid", "wic", "lifeline"]
     program_label: str
     status: Status
     reasons: list[Reason]

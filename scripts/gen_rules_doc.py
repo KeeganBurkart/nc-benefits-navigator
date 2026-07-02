@@ -31,6 +31,9 @@ RULE_TABLES: dict[str, str] = {
     "medicaid.child": "rules/tables/medicaid.yaml + fpl.yaml",
     "medicaid.parent_caretaker": "rules/tables/medicaid.yaml + fpl.yaml",
     "medicaid.magi_income": "rules/tables/medicaid.yaml",
+    "wic.income": "rules/tables/wic.yaml + fpl.yaml",
+    "lifeline.income": "rules/tables/lifeline.yaml + fpl.yaml",
+    "lifeline.qualifying_program": "rules/tables/lifeline.yaml",
 }
 
 HEADER = """\
@@ -53,7 +56,7 @@ UPDATING = """
 
 The federal government adjusts these figures every year: FPL guidelines in
 January, SNAP cost-of-living adjustments effective October 1. The engine's
-numbers live in three YAML files — **updating them is a data pull request,
+numbers live in five YAML files — **updating them is a data pull request,
 not a code change.**
 
 1. Get the new source documents:
@@ -62,6 +65,11 @@ not a code change.**
      fiscal year (linked from `rules/tables/fns.yaml`).
    - Medicaid: NC DHHS MAGI percentage limits (linked from
      `rules/tables/medicaid.yaml`) — these change rarely.
+   - WIC and Lifeline (`rules/tables/wic.yaml`, `rules/tables/lifeline.yaml`)
+     store statutory percent-of-FPL multipliers and the Lifeline support
+     amount; their dollar limits move automatically with `fpl.yaml`. Bump
+     their `effective_from`/`effective_to` each cycle (WIC's IEG year runs
+     July 1 → June 30) and confirm the regulations haven't changed.
 2. Edit the YAML file(s): update every figure under `values:` (all money is
    **integer cents**), update `source_url`/`source_name`, and set the new
    `effective_from` / `effective_to` dates. The loader refuses to serve a
@@ -95,7 +103,7 @@ def generate() -> str:
         rows.append(f"| `{c.rule_id}` | {c.title} | {section} | {table} |")
 
     effective = []
-    for name in ("fpl", "fns", "medicaid"):
+    for name in ("fpl", "fns", "medicaid", "wic", "lifeline"):
         t = load_table(name)
         effective.append(
             f"- `rules/tables/{name}.yaml` — {t.source_name} "
