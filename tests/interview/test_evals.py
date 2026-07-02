@@ -205,6 +205,8 @@ def test_ineligible_relayed_faithfully(ineligible: Transcript):
     assert ineligible.statuses() == {
         "fns": "likely_ineligible",
         "medicaid": "likely_ineligible",
+        "wic": "likely_ineligible",
+        "lifeline": "likely_ineligible",
     }, "script drifted — expected a clearly over-income household"
 
     final = ineligible.final_text.lower()
