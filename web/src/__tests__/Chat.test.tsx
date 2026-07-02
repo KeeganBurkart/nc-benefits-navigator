@@ -68,6 +68,35 @@ describe('Chat', () => {
     expect(mockStream).toHaveBeenLastCalledWith('s1', 'first try', expect.any(Function))
   })
 
+  it('renders assistant markdown — bold text becomes a <strong> element', async () => {
+    mockStream.mockImplementation(
+      emitting({ type: 'text', delta: 'Recorded — her wage is **$12/hour**.' }, { type: 'done' }),
+    )
+    render(<Chat sessionId="s1" onHousehold={vi.fn()} onScreening={vi.fn()} />)
+    await sendMessage('hi')
+    const strong = await screen.findByText('$12/hour')
+    expect(strong.tagName).toBe('STRONG')
+  })
+
+  it('inserts a paragraph break between text segments split by a tool call', async () => {
+    mockStream.mockImplementation(
+      emitting(
+        { type: 'text', delta: 'Let me record that.' },
+        { type: 'household', data: {} as never },
+        { type: 'screening', data: {} as never },
+        { type: 'text', delta: 'Got it — recorded.' },
+        { type: 'done' },
+      ),
+    )
+    render(<Chat sessionId="s1" onHousehold={vi.fn()} onScreening={vi.fn()} />)
+    await sendMessage('hi')
+    const bubble = (await screen.findByText('Let me record that.')).closest('.msg-assistant')!
+    const paragraphs = bubble.querySelectorAll('p')
+    expect(paragraphs).toHaveLength(2)
+    expect(paragraphs[0].textContent).toBe('Let me record that.')
+    expect(paragraphs[1].textContent).toBe('Got it — recorded.')
+  })
+
   it('disables the input while streaming', async () => {
     let release: () => void = () => {}
     mockStream.mockImplementation(

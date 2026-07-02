@@ -184,7 +184,6 @@ select {
   max-width: 85%;
   padding: 0.55rem 0.8rem;
   border-radius: var(--radius);
-  white-space: pre-wrap;
   line-height: 1.45;
 }
 
@@ -192,6 +191,7 @@ select {
   align-self: flex-end;
   background: var(--accent);
   color: #fff;
+  white-space: pre-wrap;
 }
 
 .msg-assistant {
@@ -204,11 +204,39 @@ select {
   display: none;
 }
 
+.msg-assistant p {
+  margin: 0 0 0.5em;
+}
+
+.msg-assistant p:last-child {
+  margin-bottom: 0;
+}
+
+.msg-assistant ul {
+  margin: 0 0 0.5em;
+  padding-left: 1.2em;
+}
+
+.msg-assistant ul:last-child {
+  margin-bottom: 0;
+}
+
+.msg-assistant .msg-heading {
+  font-weight: 700;
+}
+
+.msg-assistant hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.6em 0;
+}
+
 .msg-notice {
   align-self: center;
   background: var(--red-bg);
   color: var(--red-fg);
   font-size: 0.9rem;
+  white-space: pre-wrap;
 }
 
 .retry-btn {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { streamMessage } from '../api'
+import { renderMarkdownLite } from '../markdown'
 import type { Household, ScreeningResult } from '../types'
 
 interface Msg {
@@ -50,13 +51,24 @@ export default function Chat({ sessionId, onHousehold, onScreening }: ChatProps)
     setLastFailed(null)
     setMessages((m) => [...m, { role: 'user', text: trimmed }, { role: 'assistant', text: '' }])
     let failed = false
+    // The model's reply can span multiple tool-call round-trips; each one
+    // resumes with a fresh text segment that needs a paragraph break before it,
+    // not to be run on from the segment before the tool call.
+    let needsBreak = false
     try {
       await streamMessage(sessionId, trimmed, (event) => {
         if (event.type === 'text') {
-          setMessages((m) => appendDelta(m, event.delta))
+          // Decide outside the updater — React may invoke updaters twice.
+          // A leading blank line on an empty bubble is harmless (the
+          // markdown renderer skips blank lines).
+          const delta = needsBreak ? `\n\n${event.delta}` : event.delta
+          needsBreak = false
+          setMessages((m) => appendDelta(m, delta))
         } else if (event.type === 'household') {
+          needsBreak = true
           onHousehold(event.data)
         } else if (event.type === 'screening') {
+          needsBreak = true
           onScreening(event.data)
         } else if (event.type === 'error') {
           failed = true
@@ -103,6 +115,8 @@ export default function Chat({ sessionId, onHousehold, onScreening }: ChatProps)
                   </button>
                 )}
               </span>
+            ) : msg.role === 'assistant' ? (
+              renderMarkdownLite(msg.text)
             ) : (
               msg.text
             )}
