@@ -52,10 +52,11 @@ def by_rule(result, rule_id):
 
 def test_homeless_gets_standard_deduction_and_no_rent_demand():
     # wages 100000: std 20900 + earned 20000 + homeless 19899 = 60799.
-    # net = 39201 <= 130500 -> eligible. allotment = 29800 - round(0.3*39201) = 18040.
+    # net = 39201 <= 130500 -> eligible. allotment = 29800 - 0.3*39201 (=11760.3)
+    #   = 18039.7 -> whole-dollar floor (FNS-360 step 28) = 18000.
     r = evaluate(household(100000, is_homeless=True))
     assert r.status == "likely_eligible"
-    assert r.estimated_benefit_cents == 18040
+    assert r.estimated_benefit_cents == 18000
     assert "fns.deductions.homeless_shelter" in rule_ids(r)
     assert "expenses.rent_or_mortgage_cents" not in r.missing_fields
 

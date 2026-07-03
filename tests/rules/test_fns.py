@@ -161,9 +161,9 @@ def test_eligible_household_with_allotment():
     # standard "3" = 20900; earned 20% of 200000 = 40000.
     # no shelter (no rent reported). net = 200000 - 20900 - 40000 = 139100.
     # net limit size 3 = 222100 → 139100 <= limit → passes net → eligible.
-    # allotment = max_allotment[3]=78500 - round_half_up(0.3*139100)
-    #           = 78500 - round(41730) = 78500 - 41730 = 36770.
-    # size 3 > 2 so no minimum floor applies. 36770 > 0.
+    # allotment = max_allotment[3]=78500 - 0.3*139100 (=41730) = 36770
+    #           -> round down to whole dollar (FNS-360 step 28) = 36700.
+    # size 3 > 2 so no minimum floor applies. 36700 > 0.
     hh = Household(
         members=[member("m1"), member("m2", relationship="spouse"),
                  member("m3", age=5, relationship="child")],
@@ -173,7 +173,7 @@ def test_eligible_household_with_allotment():
     )
     r = evaluate(hh)
     assert r.status == "likely_eligible"
-    assert r.estimated_benefit_cents == 36770
+    assert r.estimated_benefit_cents == 36700
     assert "fns.gross_income" in reasons_by_rule(r)
     assert "fns.net_income" in reasons_by_rule(r)
     assert "fns.allotment" in reasons_by_rule(r)
@@ -187,7 +187,7 @@ def test_dependent_care_deduction_changes_net():
     # size 3, wages 200000. dependent_care 30000.
     # baseline net (no dep care) = 200000 - 20900(std) - 40000(earned) = 139100.
     # with dep care: net = 139100 - 30000 = 109100.
-    # allotment = 78500 - round(0.3*109100=32730) = 78500 - 32730 = 45770.
+    # allotment = 78500 - 0.3*109100 (=32730) = 45770 -> whole-dollar floor = 45700.
     hh = Household(
         members=[member("m1"), member("m2", relationship="spouse"),
                  member("m3", age=5, relationship="child")],
@@ -198,13 +198,13 @@ def test_dependent_care_deduction_changes_net():
     r = evaluate(hh)
     assert r.status == "likely_eligible"
     assert "fns.deductions.dependent_care" in reasons_by_rule(r)
-    assert r.estimated_benefit_cents == 45770  # net 109100 → 78500-32730
+    assert r.estimated_benefit_cents == 45700  # net 109100 → floor(78500-32730)
 
 
 def test_child_support_paid_deduction_changes_net():
     # size 3, wages 200000. child_support_paid 25000.
-    # net = 139100 - 25000 = 114100. allotment = 78500 - round(0.3*114100=34230)
-    #     = 78500 - 34230 = 44270.
+    # net = 139100 - 25000 = 114100. allotment = 78500 - 0.3*114100 (=34230)
+    #     = 44270 -> whole-dollar floor = 44200.
     hh = Household(
         members=[member("m1"), member("m2", relationship="spouse"),
                  member("m3", age=5, relationship="child")],
@@ -214,14 +214,14 @@ def test_child_support_paid_deduction_changes_net():
     )
     r = evaluate(hh)
     assert "fns.deductions.child_support" in reasons_by_rule(r)
-    assert r.estimated_benefit_cents == 44270
+    assert r.estimated_benefit_cents == 44200
 
 
 def test_earned_income_deduction_only_on_earned_kinds():
     # size 1, unemployment 100000 (UNEARNED → no 20% deduction).
     # std "1-2" = 20900; no earned deduction. net = 100000 - 20900 = 79100.
-    # net limit size 1 = 130500 → passes. allotment = 29800 - round(0.3*79100=23730)
-    #   = 29800 - 23730 = 6070. size 1 <= 2 → minimum floor 2400; 6070 > 2400 keep.
+    # net limit size 1 = 130500 → passes. allotment = 29800 - 0.3*79100 (=23730)
+    #   = 6070 -> whole-dollar floor = 6000. size 1 <= 2 → min 2400; 6000 > 2400 keep.
     hh = Household(
         members=[member("m1")],
         income=[income("i1", 100000, kind="unemployment")],
@@ -231,7 +231,7 @@ def test_earned_income_deduction_only_on_earned_kinds():
     assert r.status == "likely_eligible"
     # earned income deduction reason must NOT appear (no earned income)
     assert "fns.deductions.earned_income" not in reasons_by_rule(r)
-    assert r.estimated_benefit_cents == 6070
+    assert r.estimated_benefit_cents == 6000
 
 
 def test_medical_deduction_requires_elderly_and_over_threshold():
@@ -240,7 +240,7 @@ def test_medical_deduction_requires_elderly_and_over_threshold():
     # std "1-2"=20900; earned 20% of 90000 = 18000; medical 10000.
     # net = 90000 - 20900 - 18000 - 10000 = 41100.
     # net limit size 1 = 130500 → passes (gross skipped: elderly).
-    # allotment = 29800 - round(0.3*41100=12330) = 29800 - 12330 = 17470.
+    # allotment = 29800 - 0.3*41100 (=12330) = 17470 -> whole-dollar floor = 17400.
     hh = Household(
         members=[member("m1", age=70)],
         income=[income("i1", 90000)],
@@ -248,13 +248,13 @@ def test_medical_deduction_requires_elderly_and_over_threshold():
     )
     r = evaluate(hh)
     assert "fns.deductions.medical" in reasons_by_rule(r)
-    assert r.estimated_benefit_cents == 17470
+    assert r.estimated_benefit_cents == 17400
 
 
 def test_medical_deduction_skipped_when_not_elderly_disabled():
     # size 1, age 40 (NOT elderly/disabled), wages 90000, medical 13500.
     # medical deduction does not apply. net = 90000 - 20900 - 18000 = 51100.
-    # allotment = 29800 - round(0.3*51100=15330) = 29800 - 15330 = 14470.
+    # allotment = 29800 - 0.3*51100 (=15330) = 14470 -> whole-dollar floor = 14400.
     hh = Household(
         members=[member("m1", age=40)],
         income=[income("i1", 90000)],
@@ -262,13 +262,13 @@ def test_medical_deduction_skipped_when_not_elderly_disabled():
     )
     r = evaluate(hh)
     assert "fns.deductions.medical" not in reasons_by_rule(r)
-    assert r.estimated_benefit_cents == 14470
+    assert r.estimated_benefit_cents == 14400
 
 
 def test_medical_at_or_below_threshold_not_deducted():
     # medical exactly 3500 (== threshold) → not > threshold → no deduction.
     # size 1 elderly, wages 90000. net = 90000 - 20900 - 18000 = 51100.
-    # allotment = 29800 - 15330 = 14470.
+    # allotment = floor(29800 - 15330 = 14470) = 14400.
     hh = Household(
         members=[member("m1", age=70)],
         income=[income("i1", 90000)],
@@ -276,7 +276,7 @@ def test_medical_at_or_below_threshold_not_deducted():
     )
     r = evaluate(hh)
     assert "fns.deductions.medical" not in reasons_by_rule(r)
-    assert r.estimated_benefit_cents == 14470
+    assert r.estimated_benefit_cents == 14400
 
 
 # ---------------------------------------------------------------------------
@@ -365,10 +365,10 @@ def test_shelter_cap_vs_uncap_measurable_difference():
     # income after = 300000 - 82300 = 217700. half = 108850.
     # rent = 250000, no SUA. shelter = 250000. excess = 250000 - 108850 = 141150.
     # NON-ELDERLY cap 74400: net = 217700 - 74400 = 143300.
-    #   net limit size4 = 268000 → passes. allotment = 99400 - round(0.3*143300=42990)
-    #     = 99400 - 42990 = 56410.
+    #   net limit size4 = 268000 → passes. allotment = 99400 - 0.3*143300 (=42990)
+    #     = 56410 -> whole-dollar floor = 56400.
     # ELDERLY uncapped 141150: net = 217700 - 141150 = 76550.
-    #   allotment = 99400 - round(0.3*76550=22965) = 99400 - 22965 = 76435.
+    #   allotment = 99400 - 0.3*76550 (=22965) = 76435 -> whole-dollar floor = 76400.
     members_nonelderly = [
         member("m1"), member("m2", relationship="spouse"),
         member("m3", age=10, relationship="child"),
@@ -383,7 +383,7 @@ def test_shelter_cap_vs_uncap_measurable_difference():
     )
     r_capped = evaluate(hh_capped)
     assert r_capped.status == "likely_eligible"
-    assert r_capped.estimated_benefit_cents == 56410
+    assert r_capped.estimated_benefit_cents == 56400
 
     members_elderly = [
         member("m1", age=67), member("m2", relationship="spouse"),
@@ -399,28 +399,20 @@ def test_shelter_cap_vs_uncap_measurable_difference():
     )
     r_uncapped = evaluate(hh_uncapped)
     assert r_uncapped.status == "likely_eligible"
-    assert r_uncapped.estimated_benefit_cents == 76435
+    assert r_uncapped.estimated_benefit_cents == 76400
 
 
 # ---------------------------------------------------------------------------
 # Allotment math edge cases
 # ---------------------------------------------------------------------------
 
-def test_allotment_half_up_rounding():
-    # Choose net so 0.3*net ends in exactly .5 cents → must round half UP.
-    # We want 0.3 * net = X.5. net = 5 → 1.5 rounds to 2.
-    # Build: size 1, unemployment income so no earned deduction, choose amount.
-    # We need net such that 0.3*net has .5 fraction. Use net = 100015:
-    #   0.3 * 100015 = 30004.5 → half-up → 30005.
-    # To get net=100015 from size1 unemployment A: net = A - 20900 (std only).
-    #   A = 100015 + 20900 = 120915.
-    # net limit size1 = 130500 → 100015 <= limit → passes.
-    # allotment = 29800 - 30005 = floor 0 (negative → 0). status eligible but
-    #   benefit 0... a zero allotment is allowed; verify rounding via net path.
-    # Instead assert benefit math directly with a size where allotment stays > 0:
-    # size 3 unemployment A. net = A - 20900 (std "3"). want 0.3*net = N.5.
-    #   net = 100015 → 0.3*100015 = 30004.5 → 30005. A = 100015 + 20900 = 120915.
-    # allotment = 78500 - 30005 = 48495.
+def test_allotment_rounds_down_to_whole_dollar():
+    # FNS-360 worksheet step 28: subtract 30% of net from the max allotment and
+    # round the result DOWN to the whole dollar (the manual's own example:
+    # $192 - $30.10 = $161.90, round down to $161).
+    # size 3 unemployment A. net = A - 20900 (std "3"). net = 100015 →
+    #   0.3*100015 = 30004.5; 78500 - 30004.5 = 48495.5 -> floor to dollar = 48400.
+    # A = 100015 + 20900 = 120915. net limit size3 = 222100 → passes.
     hh = Household(
         members=[member("m1"), member("m2", relationship="spouse"),
                  member("m3", age=5, relationship="child")],
@@ -429,8 +421,9 @@ def test_allotment_half_up_rounding():
         purchases_and_prepares_together=True,
     )
     r = evaluate(hh)
-    # net = 120915 - 20900 = 100015; 0.3*100015 = 30004.5 → half-up 30005.
-    assert r.estimated_benefit_cents == 78500 - 30005  # 48495
+    # net = 120915 - 20900 = 100015; floor((78500 - 30004.5)/100)*100 = 48400.
+    assert r.estimated_benefit_cents == 48400
+    assert r.estimated_benefit_cents % 100 == 0  # benefits are whole dollars
 
 
 def test_minimum_allotment_floor_for_size_one():
@@ -451,22 +444,18 @@ def test_minimum_allotment_floor_for_size_one():
     assert r.estimated_benefit_cents == 2400
 
 
-def test_allotment_zero_floor_no_minimum_for_large_size():
-    # size 3, high net so computed allotment is negative → floor 0 (no min, size>2).
-    # net = 300000: 0.3*300000 = 90000 → 78500 - 90000 = -11500 → 0.
-    # But net 300000 > net limit size3 222100 → would FAIL net. Need net <= limit.
-    # Use net just under limit: net = 222100 (== limit, passes).
-    #   0.3*222100 = 66630 → 78500 - 66630 = 11870 (positive). Not zero.
-    # To get a zero allotment with passing net we need 0.3*net >= max_allot.
-    #   0.3*net >= 78500 → net >= 261666.7 > net limit 222100. Impossible at size 3.
-    # So a *zero* allotment with a passing net only happens for sizes where
-    #   max_allotment < 0.3 * net_limit. Check size 1: max 29800 vs 0.3*130500=39150.
-    #   29800 < 39150 → possible. net = 130500 (== limit passes):
-    #   0.3*130500 = 39150 → 29800 - 39150 = -9350 → floor 0.
-    #   BUT size 1 <= 2 triggers minimum floor ONLY when result > 0; result is 0
-    #   so minimum does NOT apply → benefit stays 0. status still eligible.
-    #   net = A - 20900 (unemployment) = 130500 → A = 151400.
-    #   gross check size1 limit 266000 → 151400 <= 266000 passes gross too.
+def test_minimum_allotment_when_computation_goes_negative():
+    # An eligible 1-2 person unit ALWAYS receives at least the minimum allotment
+    # (7 CFR 273.10(e)(2)(ii)(C); FNS-360: "All one and two-person FNS units must
+    # receive a minimum monthly allotment of $24").
+    # size 1, net = 130500 (== net limit, passes): 0.3*130500 = 39150 →
+    #   29800 - 39150 = -9350 → floor 0 → minimum 2400 applies.
+    # net = A - 20900 (unemployment) = 130500 → A = 151400.
+    # gross check size1 limit 266000 → 151400 <= 266000 passes gross too.
+    # (A zero allotment with a passing net test is impossible at sizes 3+ with
+    # the FY2026 tables: max_allotment >= 0.3 * net_limit at every such size.
+    # If a future table flipped that, the engine reports the $0 computation as
+    # a denial per 7 CFR 273.10(e)(2)(ii)(B).)
     hh = Household(
         members=[member("m1")],
         income=[income("i1", 151400, kind="unemployment")],
@@ -474,7 +463,7 @@ def test_allotment_zero_floor_no_minimum_for_large_size():
     )
     r = evaluate(hh)
     assert r.status == "likely_eligible"
-    assert r.estimated_benefit_cents == 0
+    assert r.estimated_benefit_cents == 2400
 
 
 # ---------------------------------------------------------------------------
@@ -487,8 +476,8 @@ def test_not_qualified_member_shrinks_unit_but_income_counts():
     # unit size 2: gross limit 360667 → 230000 <= limit → passes gross.
     # std "1-2" (size 2) = 20900; earned 20% of 230000 = 46000.
     # net = 230000 - 20900 - 46000 = 163100. net limit size2 = 176300 → passes.
-    # allotment = max_allot[2]=54600 - round(0.3*163100=48930) = 54600 - 48930 = 5670.
-    #   size 2 <= 2, result > 0 → min 2400; 5670 > 2400 keep.
+    # allotment = max_allot[2]=54600 - 0.3*163100 (=48930) = 5670 -> whole-dollar
+    #   floor = 5600. size 2 <= 2 → min 2400; 5600 > 2400 keep.
     hh = Household(
         members=[member("m1"), member("m2", relationship="spouse"),
                  member("m3", relationship="other_relative", immigration_status="not_qualified")],
@@ -499,7 +488,7 @@ def test_not_qualified_member_shrinks_unit_but_income_counts():
     r = evaluate(hh)
     assert "fns.immigration" in reasons_by_rule(r)
     assert r.status == "likely_eligible"
-    assert r.estimated_benefit_cents == 5670
+    assert r.estimated_benefit_cents == 5600
 
 
 def test_unknown_immigration_status_is_missing_field():
@@ -528,7 +517,7 @@ def test_unit_size_beyond_10_extrapolates():
     #
     # income=200000 all wages. std band "6+"=29900. earned 20%=40000.
     # net = 200000 - 29900 - 40000 = 130100. net_limit=634900 → passes.
-    # allotment = 266100 - round(0.3*130100=39030) = 266100 - 39030 = 227070.
+    # allotment = 266100 - 0.3*130100 (=39030) = 227070 -> whole-dollar floor = 227000.
     members_ = [member(f"m{i}", age=30 if i == 1 else 10,
                        relationship="self" if i == 1 else "child") for i in range(1, 13)]
     hh = Household(
@@ -540,7 +529,7 @@ def test_unit_size_beyond_10_extrapolates():
     r = evaluate(hh)
     assert r.status == "likely_eligible"
     assert "fns.gross_income" in reasons_by_rule(r)
-    assert r.estimated_benefit_cents == 227070
+    assert r.estimated_benefit_cents == 227000
 
 
 # ---------------------------------------------------------------------------

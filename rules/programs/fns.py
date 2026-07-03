@@ -21,7 +21,7 @@ never gates status.
 
 from __future__ import annotations
 
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_FLOOR, ROUND_HALF_UP, Decimal
 
 from rules.models import Expenses, Household, Member, monthly_cents
 from rules.programs._shared import INCOME_DOC_NAMES as _INCOME_DOC_NAMES
@@ -79,17 +79,16 @@ def _sua_band(size: int) -> str:
 # ---------------------------------------------------------------------------
 
 def _allotment(values, size: int, net: int) -> int:
-    """Thrifty Food Plan allotment: max − 30% of net, floor 0, with a minimum
-    for 1-2 person units when the result is positive. Rounds the 30% half-up."""
+    """Thrifty Food Plan allotment per the FNS-360 worksheet (step 28): subtract
+    30% of net income from the maximum allotment and round the result DOWN to
+    the whole dollar, floor 0. Eligible 1-2 person units always receive at
+    least the minimum allotment (7 CFR 273.10(e)(2)(ii)(C))."""
     max_allot = _size_lookup(values["max_allotment_cents"], size)
-    thirty_pct = int((Decimal(net) * Decimal("0.3")).to_integral_value(rounding=ROUND_HALF_UP))
-    allot = max_allot - thirty_pct
-    if allot <= 0:
-        return 0
+    raw = Decimal(max_allot) - Decimal(net) * Decimal("0.3")
+    allot = int((raw / 100).to_integral_value(rounding=ROUND_FLOOR)) * 100
+    allot = max(allot, 0)
     if size <= 2:
-        minimum = int(values["minimum_allotment_cents"])
-        if allot < minimum:
-            return minimum
+        allot = max(allot, int(values["minimum_allotment_cents"]))
     return allot
 
 
@@ -358,6 +357,17 @@ def _phase_net_and_allotment(
             f"limit for a household of {size_for_tables} ({_fmt(net_limit)}).",
         ))
         benefit = _allotment(values, size_for_tables, net)
+        if benefit == 0:
+            # Only reachable for 3+ person units (1-2 person units get the
+            # minimum allotment). A $0 computed benefit is a denial: net income
+            # exceeds the level at which benefits issue (7 CFR 273.10(e)(2)(ii)(B)).
+            reasons.append(_reason(
+                "fns.allotment",
+                f"Your household's income after deductions ({_fmt(net)}) is high "
+                f"enough that the computed monthly benefit is $0, so a household "
+                f"of {size_for_tables} would be denied.",
+            ))
+            return "likely_ineligible", None, reasons
         reasons.append(_reason(
             "fns.allotment",
             f"Based on this income, your estimated monthly food benefit is "

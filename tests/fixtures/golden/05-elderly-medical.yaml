@@ -1,6 +1,6 @@
 name: elderly-couple-medical-deduction
 description: "Older Wilmington couple (63 and 64) on Social Security with significant out-of-pocket medical costs; the medical deduction raises their food benefit."
-verified: false
+verified: true  # 2026-07-03: tables verified against primary sources (2026 HHS FPL detailed guidelines, USDA FY26 SNAP COLA memo, NC FNS-360 rev 2025-09-30, NC MA-3321 rev 2026-04-01, 7 CFR 246.7, 47 CFR 54.403/54.409) and arithmetic independently recomputed & corrected to whole-dollar allotments -- verification by Claude (AI) with primary sources, not a human reviewer
 household:
   members:
     - {id: m1, age: 63, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
@@ -24,10 +24,10 @@ household:
 #       income_after_other = 180000 - 67400 = 112600; half = 56300; excess = 40000 - 56300 < 0 -> no shelter deduction.
 #     total = 20900 + 46500 = 67400
 #   net = 180000 - 67400 = 112600; net limit (size 2) = 176300 -> passes.
-#   allotment = max(2) 54600 - round_half_up(0.3 * 112600 = 33780) = 20820.
-#   (Without the medical deduction net would be 159100 and the allotment only 6870 -- the deduction is load-bearing.)
+#   allotment = max(2) 54600 - 0.3*112600 (=33780) = 20820 -> round down to whole dollar (FNS-360 step 28) = 20800.
+#   (Without the medical deduction net would be 159100 and the allotment only 6800 -- the deduction is load-bearing.)
 # Medicaid (size 2, countable Social Security 180000; both adults 63/64 are in MAGI scope, under 65):
 #   adult expansion limit (133%+5%, size2) = 248860; 180000 <= 248860 -> adults qualify -> likely_eligible.
 expected:
-  fns: {status: likely_eligible, estimated_benefit_cents: 20820}
+  fns: {status: likely_eligible, estimated_benefit_cents: 20800}
   medicaid: {status: likely_eligible}

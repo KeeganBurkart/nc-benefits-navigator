@@ -1,6 +1,6 @@
 name: aged-65-plus-abd-handoff
 description: "70-year-old Wilmington retiree on Social Security; FNS gives a food benefit but Medicaid hands off to the aged/blind/disabled rules this tool does not screen."
-verified: false
+verified: true  # 2026-07-03: tables verified against primary sources (2026 HHS FPL detailed guidelines, USDA FY26 SNAP COLA memo, NC FNS-360 rev 2025-09-30, NC MA-3321 rev 2026-04-01, 7 CFR 246.7, 47 CFR 54.403/54.409) and arithmetic independently recomputed & corrected to whole-dollar allotments -- verification by Claude (AI) with primary sources, not a human reviewer
 household:
   members:
     - {id: m1, age: 70, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
@@ -22,7 +22,7 @@ household:
 #       excess = 123700 - 34550 = 89150 -> uncapped (elderly) -> 89150 applied.
 #     total = 20900 + 89150 = 110050
 #   net = max(90000 - 110050, 0) = 0; net limit (size 1) = 130500 -> passes.
-#   allotment = max(1) 29800 - round_half_up(0.3 * 0 = 0) = 29800 (full maximum).
+#   allotment = max(1) 29800 - 0.3*0 = 29800 (already whole dollars; full maximum).
 # Medicaid (size 1): the only member is age 70 (>= 65), out of MAGI scope.
 #   No one qualifies under MAGI and an aged member is present -> needs_more_info (ABD hand-off).
 expected:

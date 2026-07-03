@@ -1,6 +1,6 @@
 name: minimum-allotment-single-adult
 description: "Single Wilmington adult whose computed food benefit rounds below the floor, so the $24 minimum allotment for 1-2 person households applies."
-verified: false
+verified: true  # 2026-07-03: tables verified against primary sources (2026 HHS FPL detailed guidelines, USDA FY26 SNAP COLA memo, NC FNS-360 rev 2025-09-30, NC MA-3321 rev 2026-04-01, 7 CFR 246.7, 47 CFR 54.403/54.409) and arithmetic independently recomputed & corrected to whole-dollar allotments -- verification by Claude (AI) with primary sources, not a human reviewer
 household:
   members:
     - {id: m1, age: 55, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
@@ -19,8 +19,8 @@ household:
 #   gross = 115000; gross 200% limit (size 1) = 266000 -> passes.
 #   deductions: standard(1-2) 20900 only.
 #   net = 115000 - 20900 = 94100; net limit (size 1) = 130500 -> passes.
-#   raw allotment = max(1) 29800 - round_half_up(0.3 * 94100 = 28230) = 1570.
-#   1570 > 0 and below the 2400 minimum (1-2 person households) -> bumped to minimum_allotment 2400.
+#   raw allotment = max(1) 29800 - 0.3*94100 (=28230) = 1570 -> round down to whole dollar (FNS-360 step 28) = 1500.
+#   1500 is below the 2400 minimum (1-2 person households) -> bumped to minimum_allotment 2400.
 # Medicaid (size 1, countable Social Security 115000):
 #   adult expansion limit (133%+5%, size1) = 183540; 115000 <= 183540 -> adult eligible -> likely_eligible.
 expected:

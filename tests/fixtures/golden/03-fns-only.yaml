@@ -1,6 +1,6 @@
 name: fns-only-childless-adult-modest-wages
 description: "Childless adult in Wilmington earning modest wages, high rent. Qualifies for food assistance but income is just over the adult Medicaid line."
-verified: false
+verified: true  # 2026-07-03: tables verified against primary sources (2026 HHS FPL detailed guidelines, USDA FY26 SNAP COLA memo, NC FNS-360 rev 2025-09-30, NC MA-3321 rev 2026-04-01, 7 CFR 246.7, 47 CFR 54.403/54.409) and arithmetic independently recomputed & corrected to whole-dollar allotments -- verification by Claude (AI) with primary sources, not a human reviewer
 household:
   members:
     - {id: m1, age: 50, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
@@ -22,11 +22,11 @@ household:
 #       excess = 173700 - 69550 = 104150 -> capped at 74400 = 74400
 #     total = 20900 + 40000 + 74400 = 135300
 #   net = 200000 - 135300 = 64700; net limit (size 1) = 130500 -> passes.
-#   allotment = max(1) 29800 - round_half_up(0.3 * 64700 = 19410) = 10390.
+#   allotment = max(1) 29800 - 0.3*64700 (=19410) = 10390 -> round down to whole dollar (FNS-360 step 28) = 10300.
 # Medicaid (size 1, countable wages 200000):
 #   no children, not pregnant. Adult expansion limit (133%+5%, size1) = 183540; 200000 > 183540.
 #   Highest reachable limit (CHIP 211%+5%) = 287280, but only children reach it; this adult cannot.
 #   200000 < 287280 so no fail-fast, but per-member screen finds adult over 183540 -> likely_ineligible.
 expected:
-  fns: {status: likely_eligible, estimated_benefit_cents: 10390}
+  fns: {status: likely_eligible, estimated_benefit_cents: 10300}
   medicaid: {status: likely_ineligible}

@@ -328,12 +328,13 @@ def test_fns_gross_limit_exactly_at_limit_passes_gross():
 
 def test_fns_net_limit_exactly_at_limit_is_eligible():
     # gross 151400 -> net 151400 - 20900 = 130500 == net limit -> eligible.
-    # allotment = 29800 - round_half_up(0.3 * 130500 = 39150) = negative -> $0.
+    # allotment = 29800 - 0.3*130500 (=39150) = negative -> floor 0 -> the $24
+    # minimum applies (eligible 1-2 person unit, 7 CFR 273.10(e)(2)(ii)(C)).
     m = _member("m1", 40)
     hh = _fns_household(m, [_income(151400, kind="social_security")], {})
     fns = _fns(hh)
     assert fns.status == "likely_eligible"
-    assert fns.estimated_benefit_cents == 0
+    assert fns.estimated_benefit_cents == 2400
     assert _has_reason(fns, "fns.net_income", "under the limit")
 
 
@@ -387,7 +388,7 @@ def test_fns_medical_expense_one_cent_over_threshold_deducts_the_excess():
 def test_fns_excess_shelter_capped_for_non_elderly():
     # Non-elderly: excess 110450 is capped at 74400.
     # net = 100000 - 20900 - 74400 = 4700;
-    # allotment = 29800 - round_half_up(0.3 * 4700 = 1410) = 28390.
+    # allotment = 29800 - 0.3*4700 (=1410) = 28390 -> whole-dollar floor = 28300.
     m = _member("m1", 40)
     hh = _fns_household(
         m,
@@ -398,7 +399,7 @@ def test_fns_excess_shelter_capped_for_non_elderly():
     fns = _fns(hh)
     assert fns.status == "likely_eligible"
     assert _has_reason(fns, "fns.deductions.shelter", "$744.00")
-    assert fns.estimated_benefit_cents == 28390
+    assert fns.estimated_benefit_cents == 28300
 
 
 def test_fns_excess_shelter_uncapped_with_elderly_member():
@@ -422,11 +423,11 @@ def test_fns_excess_shelter_uncapped_with_elderly_member():
 # Size 4: standard "4"=22300; income_after_other=177700; half=88850;
 #   shelter = 60000 + 83700 = 143700; excess = 54850 (< 74400 cap, uncapped);
 #   net = 200000 - 22300 - 54850 = 122850 (<= 268000 net-4) -> eligible;
-#   allotment = 99400 - round_half_up(0.3*122850=36855) = 62545.
+#   allotment = 99400 - 0.3*122850 (=36855) = 62545 -> whole-dollar floor = 62500.
 # Size 5: standard "5"=26100; income_after_other=173900; half=86950;
 #   shelter = 60000 + 91200 = 151200; excess = 64250 (< 74400, uncapped);
 #   net = 200000 - 26100 - 64250 = 109650 (<= 313800 net-5) -> eligible;
-#   allotment = 118300 - round_half_up(0.3*109650=32895) = 85405.
+#   allotment = 118300 - 0.3*109650 (=32895) = 85405 -> whole-dollar floor = 85400.
 
 
 def _sua_household(n: int):
@@ -446,7 +447,7 @@ def test_fns_sua_band_size_four_uses_size_four_allowance():
     assert fns.status == "likely_eligible"
     # shelter reason reports the excess: 60000 + 83700(SUA "4") - 88850(half) = 54850.
     assert _has_reason(fns, "fns.deductions.shelter", "$548.50")
-    assert fns.estimated_benefit_cents == 62545
+    assert fns.estimated_benefit_cents == 62500
 
 
 def test_fns_sua_band_size_five_uses_five_plus_allowance():
@@ -454,7 +455,7 @@ def test_fns_sua_band_size_five_uses_five_plus_allowance():
     assert fns.status == "likely_eligible"
     # shelter reason reports the excess: 60000 + 91200(SUA "5+") - 86950(half) = 64250.
     assert _has_reason(fns, "fns.deductions.shelter", "$642.50")
-    assert fns.estimated_benefit_cents == 85405
+    assert fns.estimated_benefit_cents == 85400
 
 
 # --- Medicaid age-band edges (size 1; disregard 5% applied on top of the

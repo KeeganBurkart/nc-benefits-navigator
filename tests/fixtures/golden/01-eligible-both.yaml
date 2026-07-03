@@ -1,6 +1,6 @@
 name: eligible-both-single-mother-part-time-retail
 description: "Single mother of two young children, part-time retail in Wilmington (New Hanover), pays market rent with heating/cooling."
-verified: false   # Keegan flips to true after hand-checking against the manuals
+verified: true  # 2026-07-03: tables verified against primary sources (2026 HHS FPL detailed guidelines, USDA FY26 SNAP COLA memo, NC FNS-360 rev 2025-09-30, NC MA-3321 rev 2026-04-01, 7 CFR 246.7, 47 CFR 54.403/54.409) and arithmetic independently recomputed & corrected to whole-dollar allotments -- verification by Claude (AI) with primary sources, not a human reviewer
 household:
   members:
     - {id: m1, age: 29, relationship: self, is_pregnant: false, is_disabled: false, immigration_status: citizen, is_student: false}
@@ -24,7 +24,7 @@ household:
 #       excess = 166800 - 41550 = 125250 -> capped at 74400 (no elderly/disabled) = 74400
 #     total deductions = 20900 + 26000 + 74400 = 121300
 #   net = 130000 - 121300 = 8700; net limit (size 3) = 222100 -> passes net test.
-#   allotment = max(3) 78500 - round_half_up(0.3 * 8700 = 2610) = 75890.
+#   allotment = max(3) 78500 - 0.3*8700 (=2610) = 75890 -> round down to whole dollar (FNS-360 step 28) = 75800.
 # Medicaid (household size 3, countable wages 130000):
 #   child6-18 limit (107%+5%, size3) = 254987; 130000 <= 254987 -> m2 (age 7) eligible -> household likely_eligible.
 # WIC: categorical via m3 (age 4 < 5). size 3 (no pregnancies); 185% FPL(3) =
@@ -32,7 +32,7 @@ household:
 # Lifeline: 135% FPL(3) = round_half_up(227667 * 1.35 = 307350.45) = 307350;
 #   130000 <= 307350 -> likely_eligible via income, $9.25/mo discount.
 expected:
-  fns: {status: likely_eligible, estimated_benefit_cents: 75890}
+  fns: {status: likely_eligible, estimated_benefit_cents: 75800}
   medicaid: {status: likely_eligible}
   wic: {status: likely_eligible}
   lifeline: {status: likely_eligible, estimated_benefit_cents: 925}

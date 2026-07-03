@@ -73,6 +73,11 @@ every printout. Known v1 simplifications:
 - **WIC and Lifeline "adjunctive" results are contingent.** Enrollment in
   Medicaid or FNS — not a screening — is what actually confers automatic
   eligibility; the results word this as "if approved there."
+- **Weekly and hourly incomes are normalized with a 4.33 weeks-per-month
+  multiplier.** NC's FNS worksheet converts weekly amounts with 4.3 (and
+  biweekly with 2.15), so estimates built from weekly or hourly pay can differ
+  from a caseworker's arithmetic by up to ~0.7% of income — enough to land a
+  household on the other side of a limit it sits within a few dollars of.
 - English only (Spanish is the first item on the wishlist).
 
 ## Docs
