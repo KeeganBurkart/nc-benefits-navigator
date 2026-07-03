@@ -97,6 +97,32 @@ describe('Chat', () => {
     expect(paragraphs[1].textContent).toBe('Got it — recorded.')
   })
 
+  it('renders hostile user and assistant content inert — no script, no img, no javascript: link', async () => {
+    const payload =
+      '<script>window.__xss=1</script> <img src=x onerror="window.__xss=2"> [click](javascript:alert(1))'
+    // The assistant echoes the hostile text back, so both the user bubble and
+    // the markdown-rendered assistant bubble carry it.
+    mockStream.mockImplementation(
+      emitting({ type: 'text', delta: `You said: ${payload}` }, { type: 'done' }),
+    )
+    const { container } = render(<Chat sessionId="s1" onHousehold={vi.fn()} onScreening={vi.fn()} />)
+    await sendMessage(payload)
+    await screen.findByText(/You said:/)
+
+    expect(container.querySelector('script')).toBeNull()
+    expect(container.querySelector('img')).toBeNull()
+    for (const a of container.querySelectorAll('a')) {
+      expect(a.getAttribute('href') ?? '').not.toMatch(/^javascript:/i)
+    }
+    expect((window as { __xss?: number }).__xss).toBeUndefined()
+    // The payload survives as visible literal text in both bubbles.
+    const bubbles = container.querySelectorAll('.msg-user, .msg-assistant')
+    for (const bubble of bubbles) {
+      expect(bubble.textContent).toContain('<script>window.__xss=1</script>')
+      expect(bubble.textContent).toContain('[click](javascript:alert(1))')
+    }
+  })
+
   it('disables the input while streaming', async () => {
     let release: () => void = () => {}
     mockStream.mockImplementation(
