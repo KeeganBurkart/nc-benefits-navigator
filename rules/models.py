@@ -190,7 +190,9 @@ def apply_patch(household: Household, patch: dict) -> Household:
     Error behaviour:
     - Unknown fields on any model raise pydantic.ValidationError.
     - Duplicate ids within members or income raise pydantic.ValidationError.
-    - A patch list item without an 'id' key raises ValueError.
+    - A patch list item that is not an object, lacks an 'id' key, or whose
+      'id' is not a string raises ValueError (never TypeError — callers catch
+      ValueError/ValidationError and turn them into 4xx / tool errors).
     """
     # Start from a dict copy of the existing household
     base = household.model_dump()
@@ -218,9 +220,13 @@ def _merge_list(existing: list[dict], patch_items: list[dict]) -> list[dict]:
     order = [item["id"] for item in existing]
 
     for patch_item in patch_items:
+        if not isinstance(patch_item, dict):
+            raise ValueError("patch list items must be objects")
         if "id" not in patch_item:
             raise ValueError("missing required 'id' in patch list item")
         pid = patch_item["id"]
+        if not isinstance(pid, str):
+            raise ValueError("patch list item 'id' must be a string")
         if patch_item.get("_delete"):
             by_id.pop(pid, None)
             if pid in order:
