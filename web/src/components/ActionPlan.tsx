@@ -58,7 +58,11 @@ export default function ActionPlan({ screening }: { screening: ScreeningResult }
       <section>
         <h2>How to apply</h2>
         <p>
-          Apply online at <a href={EPASS_URL}>{EPASS_URL}</a> or visit your county DSS office.
+          Apply online at <a href={EPASS_URL}>{EPASS_URL}</a> or visit{' '}
+          {screening.household.county
+            ? `the ${screening.household.county} County DSS office`
+            : 'your county DSS office'}
+          .
         </p>
       </section>
 

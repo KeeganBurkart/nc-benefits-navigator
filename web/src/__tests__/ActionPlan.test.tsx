@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import ActionPlan from '../components/ActionPlan'
 import { buildChecklist, DISCLAIMER } from '../lib'
-import { program, screening } from './fixtures'
+import { CITATION, program, screening } from './fixtures'
 
 const TWO_PROGRAMS = screening([
   program({
@@ -36,7 +36,9 @@ describe('ActionPlan', () => {
   it('contains disclaimer, apply block, checklist, and footer', () => {
     render(<ActionPlan screening={TWO_PROGRAMS} />)
     expect(screen.getByText(DISCLAIMER)).toBeTruthy()
-    expect(screen.getByText(/or visit your county DSS office/)).toBeTruthy()
+    // Household county (New Hanover in the fixture) directs the client to
+    // their own DSS office.
+    expect(screen.getByText(/or visit the New Hanover County DSS office/)).toBeTruthy()
     expect(screen.getByRole('link', { name: 'https://epass.nc.gov' })).toBeTruthy()
     expect(screen.getAllByText(/Pay stubs/)).toHaveLength(1)
     expect(
@@ -51,6 +53,44 @@ describe('ActionPlan', () => {
     // Same citation in both programs → one footnote entry.
     expect(screen.getByText(/example\.com\/fns-810/).textContent).toContain('FNS 810')
     expect(screen.getAllByText('[1]').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('falls back to generic wording when county is unknown', () => {
+    const noCounty = {
+      ...TWO_PROGRAMS,
+      household: { ...TWO_PROGRAMS.household, county: null },
+    }
+    render(<ActionPlan screening={noCounty} />)
+    expect(screen.getByText(/or visit your county DSS office/)).toBeTruthy()
+  })
+
+  it('renders hostile household and reason strings inert in the print view', () => {
+    const hostile = screening([
+      program({
+        reasons: [
+          {
+            rule_id: 'r1',
+            text: 'Limit is <script>window.__xss=3</script> [apply](javascript:alert(1))',
+            citation: CITATION,
+          },
+        ],
+      }),
+    ])
+    hostile.household = {
+      ...hostile.household,
+      county: '<img src=x onerror="window.__xss=4"> Hanover',
+    }
+    const { container } = render(<ActionPlan screening={hostile} />)
+
+    expect(container.querySelector('script')).toBeNull()
+    expect(container.querySelector('img')).toBeNull()
+    for (const a of container.querySelectorAll('a')) {
+      expect(a.getAttribute('href') ?? '').not.toMatch(/^javascript:/i)
+    }
+    expect((window as { __xss?: number }).__xss).toBeUndefined()
+    // Hostile strings survive as literal text, not markup.
+    expect(container.textContent).toContain('<script>window.__xss=3</script>')
+    expect(container.textContent).toContain('<img src=x onerror="window.__xss=4"> Hanover')
   })
 
   it('contains no chat content', () => {
