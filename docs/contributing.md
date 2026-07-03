@@ -30,6 +30,7 @@ behavior.
 ```bash
 uv run pytest                # 300+ engine/interview/server tests (fast, offline)
 uv run pytest -m eval -s     # 10 real-API interview evals, 5 scenarios (needs ANTHROPIC_API_KEY, ~$0.40)
+uv run pytest -m adversarial -s  # 11 real-API adversarial evals, 8 probes (needs ANTHROPIC_API_KEY, ~$0.30)
 cd web && npm test           # UI component tests (Vitest)
 cd web && npm run e2e        # Playwright E2E — real server + fake LLM (build web first)
 uv run ruff check .          # lint
@@ -43,6 +44,15 @@ touch `interview/prompt.py` or `interview/loop.py`. Scenarios live in
 a 65+ ABD hand-off, an adversarial verdict/SSN probe, and a mid-conversation
 fact correction. Adding one is a fixture (the script) plus a test (the
 behavioral assertions).
+
+The adversarial suite (`tests/interview/test_adversarial_evals.py`) probes the
+failure modes that matter most here: inventing unstated facts, summarizing
+without probing expenses, prompt injection, pressure to falsify income, invalid
+values, and PII dumps. Known-open bugs are xfail-marked with their task number
+and flip to hard assertions when fixed. Its offline sibling
+(`tests/rules/test_adversarial.py`) pins engine edge cases beyond the property
+tests' bounds — oversized households, exact limit boundaries, degenerate income —
+and runs in the default suite for free.
 
 **Architecture invariant (enforced by review):** `rules/` imports nothing from
 `interview/`, `server/`, or the `anthropic` package. `interview/` may import
