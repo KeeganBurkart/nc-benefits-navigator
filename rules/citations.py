@@ -33,6 +33,12 @@ _FNS_MANUAL = "NC FNS Manual"
 _MEDICAID_MANUAL = "NC Medicaid Family & Children's Medicaid Manual"
 _WIC_REGS = "Federal WIC Regulations"
 _LIFELINE_REGS = "FCC Lifeline Rules"
+_SNAP_REGS = "Federal SNAP Regulations"
+
+_SNAP_273_2_URL = (
+    "https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/"
+    "subchapter-C/part-273/section-273.2"
+)
 
 _WIC_URL = (
     "https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/"
@@ -112,6 +118,20 @@ _REGISTRY: dict[str, Citation] = {
         section="FNS 340",
         title="Deductions (excess shelter deduction)",
         url="https://policies.ncdhhs.gov/document/fns-340-deductions/",
+    ),
+    "fns.deductions.homeless_shelter": Citation(
+        rule_id="fns.deductions.homeless_shelter",
+        manual=_FNS_MANUAL,
+        section="FNS 340",
+        title="Deductions (homeless shelter deduction)",
+        url="https://policies.ncdhhs.gov/document/fns-340-deductions/",
+    ),
+    "fns.expedited": Citation(
+        rule_id="fns.expedited",
+        manual=_SNAP_REGS,
+        section="7 CFR 273.2(i)",
+        title="Office operations and application processing (expedited service, 7-day decision)",
+        url=_SNAP_273_2_URL,
     ),
     "fns.deductions.medical": Citation(
         rule_id="fns.deductions.medical",

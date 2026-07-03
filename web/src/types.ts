@@ -48,6 +48,8 @@ export interface Household {
   expenses: Expenses
   county: string | null
   purchases_and_prepares_together: boolean | null
+  is_homeless: boolean | null
+  liquid_resources_cents: number | null
 }
 
 export type Status = 'likely_eligible' | 'likely_ineligible' | 'needs_more_info'

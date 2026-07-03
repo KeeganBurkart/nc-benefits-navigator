@@ -25,6 +25,8 @@ RULE_TABLES: dict[str, str] = {
     "fns.deductions.standard": "rules/tables/fns.yaml",
     "fns.deductions.earned_income": "rules/tables/fns.yaml",
     "fns.deductions.shelter": "rules/tables/fns.yaml",
+    "fns.deductions.homeless_shelter": "rules/tables/fns.yaml",
+    "fns.expedited": "rules/tables/fns.yaml",
     "fns.deductions.medical": "rules/tables/fns.yaml",
     "medicaid.expansion_adult": "rules/tables/medicaid.yaml + fpl.yaml",
     "medicaid.pregnant": "rules/tables/medicaid.yaml + fpl.yaml",

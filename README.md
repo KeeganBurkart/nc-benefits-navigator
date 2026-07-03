@@ -62,8 +62,11 @@ every printout. Known v1 simplifications:
   20+ hours/week, caring for a young child, and others). A household with such
   a student can screen likely eligible here and still be denied — a caseworker
   must apply the student rules.
-- **Homeless households are not modeled** (the shelter-deduction path assumes a
-  rent or mortgage figure).
+- **Homeless households get the standard homeless shelter deduction.** When
+  the household is marked homeless, the engine applies USDA's standard
+  homeless shelter deduction instead of the rent-based path and never blocks
+  on rent details; a caseworker can substitute the regular excess shelter
+  deduction when actual costs would yield more.
 - **WIC's postpartum/breastfeeding window is not tracked.** The tool only sees
   current pregnancies and ages, so a recently-pregnant member may screen
   ineligible; the result tells the caseworker to ask a WIC office.

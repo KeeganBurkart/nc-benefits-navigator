@@ -56,6 +56,9 @@ class SessionStateLike(Protocol):
 # income[].amount (dollars) → amount_cents
 _INCOME_MONEY = {"amount": "amount_cents"}
 
+# top-level household dollar-named fields → *_cents fields
+_HOUSEHOLD_MONEY = {"liquid_resources": "liquid_resources_cents"}
+
 # expenses dollar-named fields → *_cents fields
 _EXPENSE_MONEY = {
     "rent_or_mortgage": "rent_or_mortgage_cents",
@@ -105,6 +108,10 @@ def _convert_patch_money(patch: dict) -> dict:
             if dollar_key in new_expenses:
                 new_expenses[cents_key] = _dollars_to_cents(new_expenses.pop(dollar_key))
         converted["expenses"] = new_expenses
+
+    for dollar_key, cents_key in _HOUSEHOLD_MONEY.items():
+        if dollar_key in converted:
+            converted[cents_key] = _dollars_to_cents(converted.pop(dollar_key))
 
     return converted
 
@@ -177,7 +184,10 @@ _UPDATE_HOUSEHOLD_DESCRIPTION = (
     "  rent_or_mortgage (DOLLARS), utilities_included (bool), pays_heating_cooling (bool), "
     "dependent_care (DOLLARS), child_support_paid (DOLLARS), "
     "medical_expenses_elderly_disabled (DOLLARS).\n\n"
-    "top-level — county (string), purchases_and_prepares_together (bool)."
+    "top-level — county (string), purchases_and_prepares_together (bool), "
+    "is_homeless (bool — no fixed nighttime residence), liquid_resources "
+    "(DOLLARS — cash on hand plus checking/savings; used only to flag 7-day "
+    "expedited FNS service, never to deny)."
 )
 
 _GET_SCREENING_DESCRIPTION = (

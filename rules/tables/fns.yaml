@@ -98,3 +98,9 @@ values:
   medical_deduction_threshold_cents: 3500  # $35.00
   # Minimum SNAP Allotment (1-2 person households), 48 States & DC.
   minimum_allotment_cents: 2400  # $24
+  # Expedited-service screening criteria (statutory, 7 CFR 273.2(i); not in
+  # the COLA dollar tables): gross monthly income under $150 with liquid
+  # resources of $100 or less — or combined income + resources below the
+  # month's shelter costs — entitles the household to a 7-day decision.
+  expedited_gross_income_max_cents: 15000       # $150
+  expedited_liquid_resources_max_cents: 10000   # $100

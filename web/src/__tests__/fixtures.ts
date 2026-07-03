@@ -33,6 +33,8 @@ export const HOUSEHOLD: Household = {
   },
   county: 'New Hanover',
   purchases_and_prepares_together: true,
+  is_homeless: false,
+  liquid_resources_cents: null,
 }
 
 export const CITATION: CitationOut = {

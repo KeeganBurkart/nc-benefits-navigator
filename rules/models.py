@@ -108,6 +108,18 @@ class Household(BaseModel):
     expenses: Expenses = Expenses()
     county: str | None = None
     purchases_and_prepares_together: bool | None = None
+    # No fixed nighttime residence (shelter, car, doubled-up, street).
+    is_homeless: bool | None = None
+    # Cash on hand plus checking/savings. Only consulted by the expedited-FNS
+    # advisory — the engine never demands it (missing_summary excludes it).
+    liquid_resources_cents: int | None = None
+
+    @field_validator("liquid_resources_cents")
+    @classmethod
+    def resources_non_negative(cls, v: int | None) -> int | None:
+        if v is not None and v < 0:
+            raise ValueError("liquid_resources_cents must be >= 0")
+        return v
 
     @model_validator(mode="after")
     def no_duplicate_ids(self) -> "Household":

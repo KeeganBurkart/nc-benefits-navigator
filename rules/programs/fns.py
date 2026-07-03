@@ -12,10 +12,11 @@ Thrifty Food Plan allotment formula. All money is integer cents.
 Pure deterministic logic: this module must never import from ``interview/``,
 ``server/``, or the anthropic package.
 
-NOTE: ``homeless_shelter_deduction_cents`` exists in fns.yaml but is NOT applied
-here — homeless households are not modeled in v1 (the shelter-deduction path
-assumes a rent/mortgage figure). A future contributor should add a homeless flag
-and apply this deduction in _phase_deductions before tackling the net test.
+Households with ``is_homeless`` set get the standard homeless shelter
+deduction in place of the rent-based excess shelter path, and are never
+blocked on rent/utility details. The expedited-service advisory
+(7 CFR 273.2(i)) flags 7-day processing entitlement; it is informational and
+never gates status.
 """
 
 from __future__ import annotations
@@ -218,7 +219,7 @@ def _phase_gross_test(
 
 def _phase_deductions(
     values, gross: int, earned: int, size_for_tables: int,
-    has_elderly_disabled: bool, exp: Expenses,
+    has_elderly_disabled: bool, exp: Expenses, is_homeless: bool,
 ) -> tuple[int, bool, list[str], list[Reason]]:
     """Return (total_deductions, shelter_blocked, missing, reasons).
 
@@ -278,6 +279,23 @@ def _phase_deductions(
                 f"Medical costs above {_fmt(threshold)} for an older or disabled "
                 f"household member add a {_fmt(med)} deduction.",
             ))
+
+    # Homeless households get the standard homeless shelter deduction instead
+    # of the rent-based excess shelter path, and are never blocked for rent or
+    # utility details (7 CFR 273.9(d)(6)(i); the dollar figure is USDA's COLA
+    # "Maximum Homeless Shelter Deduction"). A caseworker can substitute the
+    # excess shelter deduction when actual costs would yield more.
+    if is_homeless:
+        homeless_ded = int(values["homeless_shelter_deduction_cents"])
+        deductions += homeless_ded
+        reasons.append(_reason(
+            "fns.deductions.homeless_shelter",
+            f"Because the household does not have a fixed home, a standard "
+            f"{_fmt(homeless_ded)} homeless shelter deduction is subtracted. If the "
+            f"household does pay some shelter costs, a caseworker can apply the "
+            f"regular shelter deduction instead when that is higher.",
+        ))
+        return deductions, False, missing, reasons
 
     # Excess shelter deduction.
     # The net test cannot be completed without rent. If rent is missing we ask
@@ -353,6 +371,63 @@ def _phase_net_and_allotment(
         f"for a household of {size_for_tables} ({_fmt(net_limit)}).",
     ))
     return "likely_ineligible", None, reasons
+
+
+def _expedited_reason(
+    values, gross: int, exp: Expenses, liquid_resources: int | None,
+    size_for_tables: int,
+) -> Reason | None:
+    """Advisory-only expedited-service screen (7 CFR 273.2(i)).
+
+    Qualifies when gross income is under $150/month with liquid resources of
+    $100 or less, or when income + resources fall below the month's shelter
+    costs. Never gates status and never demands fields: when resources are
+    unreported, a sub-$150 income still yields a conditional advisory (that
+    income level is itself the crisis signal), but the shelter-cost criterion
+    stays silent rather than flagging moderate-income households.
+    """
+    income_max = int(values["expedited_gross_income_max_cents"])
+    resources_max = int(values["expedited_liquid_resources_max_cents"])
+
+    seven_day = (
+        "The county must decide expedited applications within 7 calendar days — "
+        "say \"expedited service\" when applying."
+    )
+
+    if gross < income_max and liquid_resources is not None and liquid_resources <= resources_max:
+        return _reason(
+            "fns.expedited",
+            f"This household appears to qualify for EXPEDITED food assistance: its "
+            f"income before deductions ({_fmt(gross)}) is under {_fmt(income_max)} a "
+            f"month and it has {_fmt(resources_max)} or less on hand. " + seven_day,
+        )
+
+    if (
+        liquid_resources is not None
+        and exp.rent_or_mortgage_cents is not None
+        and exp.pays_heating_cooling is not None
+    ):
+        shelter = exp.rent_or_mortgage_cents
+        if exp.pays_heating_cooling:
+            shelter += int(values["standard_utility_allowance_cents"][_sua_band(size_for_tables)])
+        if gross + liquid_resources < shelter:
+            return _reason(
+                "fns.expedited",
+                f"This household appears to qualify for EXPEDITED food assistance: its "
+                f"monthly income and money on hand together ({_fmt(gross + liquid_resources)}) "
+                f"are less than its monthly housing costs ({_fmt(shelter)}). " + seven_day,
+            )
+
+    if gross < income_max and liquid_resources is None:
+        return _reason(
+            "fns.expedited",
+            f"With income before deductions ({_fmt(gross)}) under {_fmt(income_max)} a "
+            f"month, this household qualifies for EXPEDITED food assistance if it also "
+            f"has {_fmt(resources_max)} or less in cash and bank accounts — ask about "
+            f"money on hand. " + seven_day,
+        )
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -443,13 +518,28 @@ def evaluate(household: Household) -> ProgramResult:
 
     # --- Phase 4: deduction chain ---
     deductions, shelter_blocked, ded_missing, ded_reasons = _phase_deductions(
-        values, gross, earned, size_for_tables, has_elderly_disabled, household.expenses
+        values, gross, earned, size_for_tables, has_elderly_disabled,
+        household.expenses, bool(household.is_homeless),
     )
     missing.extend(ded_missing)
     reasons.extend(ded_reasons)
 
+    # Advisory 7-day expedited-service flag: only meaningful for a household
+    # that may actually receive FNS, so it is attached to the needs_more_info
+    # and likely_eligible outcomes below (never to an ineligible verdict).
+    expedited = (
+        _expedited_reason(
+            values, gross, household.expenses, household.liquid_resources_cents,
+            size_for_tables,
+        )
+        if income_complete
+        else None
+    )
+
     blocking_missing = _dedup(missing)
     if not income_complete or shelter_blocked or blocking_missing:
+        if expedited:
+            reasons.append(expedited)
         return ProgramResult(
             program="fns",
             program_label=PROGRAM_LABEL,
@@ -464,6 +554,8 @@ def evaluate(household: Household) -> ProgramResult:
     # --- Phase 5: net income test + allotment ---
     status, benefit, net_reasons = _phase_net_and_allotment(values, gross, deductions, size_for_tables)
     reasons.extend(net_reasons)
+    if expedited and status == "likely_eligible":
+        reasons.append(expedited)
 
     if income_complete and has_elderly_disabled:
         # The gross test was waived, so the net test is the one that gates

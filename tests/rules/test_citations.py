@@ -18,6 +18,8 @@ RULE_IDS = [
     "fns.deductions.standard",
     "fns.deductions.earned_income",
     "fns.deductions.shelter",
+    "fns.deductions.homeless_shelter",
+    "fns.expedited",
     "fns.deductions.medical",
     "fns.deductions.dependent_care",
     "fns.deductions.child_support",

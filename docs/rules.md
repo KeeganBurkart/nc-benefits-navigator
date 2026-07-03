@@ -20,10 +20,12 @@ screener doesn't apply it.
 | `fns.deductions.child_support` | Deductions (legally obligated child support deduction) | [NC FNS Manual FNS 340](https://policies.ncdhhs.gov/document/fns-340-deductions/) | — |
 | `fns.deductions.dependent_care` | Deductions (dependent care deduction) | [NC FNS Manual FNS 340](https://policies.ncdhhs.gov/document/fns-340-deductions/) | — |
 | `fns.deductions.earned_income` | Deductions (earned income deduction) | [NC FNS Manual FNS 340](https://policies.ncdhhs.gov/document/fns-340-deductions/) | rules/tables/fns.yaml |
+| `fns.deductions.homeless_shelter` | Deductions (homeless shelter deduction) | [NC FNS Manual FNS 340](https://policies.ncdhhs.gov/document/fns-340-deductions/) | rules/tables/fns.yaml |
 | `fns.deductions.medical` | Deductions (medical deduction for elderly/disabled members) | [NC FNS Manual FNS 340](https://policies.ncdhhs.gov/document/fns-340-deductions/) | rules/tables/fns.yaml |
 | `fns.deductions.shelter` | Deductions (excess shelter deduction) | [NC FNS Manual FNS 340](https://policies.ncdhhs.gov/document/fns-340-deductions/) | rules/tables/fns.yaml |
 | `fns.deductions.standard` | Deductions (standard deduction) | [NC FNS Manual FNS 340](https://policies.ncdhhs.gov/document/fns-340-deductions/) | rules/tables/fns.yaml |
 | `fns.elderly_disabled_exemption` | Rules for Budgeting Income (elderly/disabled households exempt from the gross income test) | [NC FNS Manual FNS 305](https://policies.ncdhhs.gov/document/fns-305-rules-for-budgeting-income/) | — |
+| `fns.expedited` | Office operations and application processing (expedited service, 7-day decision) | [Federal SNAP Regulations 7 CFR 273.2(i)](https://www.ecfr.gov/current/title-7/subtitle-B/chapter-II/subchapter-C/part-273/section-273.2) | rules/tables/fns.yaml |
 | `fns.gross_income` | Rules for Budgeting Income (gross income test) | [NC FNS Manual FNS 305](https://policies.ncdhhs.gov/document/fns-305-rules-for-budgeting-income/) | rules/tables/fns.yaml |
 | `fns.household_composition` | Household Composition | [NC FNS Manual FNS 210](https://policies.ncdhhs.gov/document/fns-210-household-composition/) | — |
 | `fns.immigration` | Non-Citizen Requirements | [NC FNS Manual FNS 227](https://policies.ncdhhs.gov/document/fns-227-non-citizen-requirements/) | — |

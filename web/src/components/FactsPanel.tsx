@@ -223,7 +223,25 @@ export default function FactsPanel({ household, onPatch }: FactsPanelProps) {
             onEdit={(value) => queue({ purchases_and_prepares_together: value })}
           />
         </label>
-        {errorFor('county', 'purchases_and_prepares_together')}
+        <label>
+          No fixed home (homeless)
+          <YesNoSelect
+            committed={household.is_homeless}
+            onEdit={(value) => queue({ is_homeless: value })}
+          />
+        </label>
+        <label>
+          Cash on hand ($, incl. bank accounts)
+          <DraftInput
+            type="number"
+            step="0.01"
+            min={0}
+            committed={dollars(household.liquid_resources_cents)}
+            onEdit={(raw) => queue({ liquid_resources: parseNumber(raw) })}
+          />
+          {errorFor('liquid_resources_cents')}
+        </label>
+        {errorFor('county', 'purchases_and_prepares_together', 'is_homeless')}
       </div>
 
       <h3>
