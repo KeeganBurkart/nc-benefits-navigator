@@ -5,7 +5,7 @@
 #   fly secrets set ANTHROPIC_API_KEY=sk-...   # never put the key in this file
 #   fly deploy
 app = "nc-benefits-navigator"
-primary_region = "atl"
+primary_region = "iad"
 
 [build]
 dockerfile = "Dockerfile"
