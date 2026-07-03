@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { ApiError } from '../api'
 import type { Household, Patch } from '../types'
 
@@ -82,6 +83,77 @@ function nextId(prefix: string, existing: { id: string }[]): string {
   return `${prefix}${n}`
 }
 
+// Controlled fields with a local draft overlay: the committed prop value is
+// shown except while the user is mid-edit, so chat/server-driven household
+// updates render immediately without clobbering in-progress typing. The draft
+// clears on blur (by then the debounced PATCH has landed the edit in props).
+
+interface DraftFieldProps {
+  committed: string | number
+  onEdit: (raw: string) => void
+}
+
+function DraftInput({
+  committed,
+  onEdit,
+  ...rest
+}: DraftFieldProps & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
+  const [draft, setDraft] = useState<string | null>(null)
+  return (
+    <input
+      {...rest}
+      value={draft ?? committed}
+      onChange={(e) => {
+        setDraft(e.target.value)
+        onEdit(e.target.value)
+      }}
+      onBlur={() => setDraft(null)}
+    />
+  )
+}
+
+function DraftSelect({
+  committed,
+  onEdit,
+  children,
+  ...rest
+}: DraftFieldProps & { children: ReactNode } & Omit<
+    React.SelectHTMLAttributes<HTMLSelectElement>,
+    'value' | 'onChange'
+  >) {
+  const [draft, setDraft] = useState<string | null>(null)
+  return (
+    <select
+      {...rest}
+      value={draft ?? committed}
+      onChange={(e) => {
+        setDraft(e.target.value)
+        onEdit(e.target.value)
+      }}
+      onBlur={() => setDraft(null)}
+    >
+      {children}
+    </select>
+  )
+}
+
+function YesNoSelect({
+  committed,
+  onEdit,
+  ...rest
+}: { committed: boolean | null; onEdit: (value: boolean | null) => void } & Omit<
+    React.SelectHTMLAttributes<HTMLSelectElement>,
+    'value' | 'onChange'
+  >) {
+  return (
+    <DraftSelect committed={boolValue(committed)} onEdit={(raw) => onEdit(parseBool(raw))} {...rest}>
+      <option value="">—</option>
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+    </DraftSelect>
+  )
+}
+
 export default function FactsPanel({ household, onPatch }: FactsPanelProps) {
   const [error, setError] = useState<FieldError | null>(null)
   const pending = useRef<Patch[]>([])
@@ -138,23 +210,18 @@ export default function FactsPanel({ household, onPatch }: FactsPanelProps) {
       <div className="facts-grid">
         <label>
           County
-          <input
-            key={`county-${household.county ?? ''}`}
+          <DraftInput
             type="text"
-            defaultValue={household.county ?? ''}
-            onChange={(e) => queue({ county: e.target.value.trim() || null })}
+            committed={household.county ?? ''}
+            onEdit={(raw) => queue({ county: raw.trim() || null })}
           />
         </label>
         <label>
           Buys &amp; prepares food together
-          <select
-            defaultValue={boolValue(household.purchases_and_prepares_together)}
-            onChange={(e) => queue({ purchases_and_prepares_together: parseBool(e.target.value) })}
-          >
-            <option value="">—</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
+          <YesNoSelect
+            committed={household.purchases_and_prepares_together}
+            onEdit={(value) => queue({ purchases_and_prepares_together: value })}
+          />
         </label>
         {errorFor('county', 'purchases_and_prepares_together')}
       </div>
@@ -190,25 +257,21 @@ export default function FactsPanel({ household, onPatch }: FactsPanelProps) {
               <tr key={m.id}>
                 <td>{m.id}</td>
                 <td>
-                  <input
+                  <DraftInput
                     type="number"
                     aria-label={`age of ${m.id}`}
-                    defaultValue={m.age ?? ''}
+                    committed={m.age ?? ''}
                     min={0}
                     max={125}
-                    onChange={(e) =>
-                      queue({ members: [{ id: m.id, age: parseNumber(e.target.value) }] })
-                    }
+                    onEdit={(raw) => queue({ members: [{ id: m.id, age: parseNumber(raw) }] })}
                   />
                   {errorFor(`members.${i}.age`)}
                 </td>
                 <td>
-                  <select
+                  <DraftSelect
                     aria-label={`relationship of ${m.id}`}
-                    defaultValue={m.relationship ?? ''}
-                    onChange={(e) =>
-                      queue({ members: [{ id: m.id, relationship: e.target.value || null }] })
-                    }
+                    committed={m.relationship ?? ''}
+                    onEdit={(raw) => queue({ members: [{ id: m.id, relationship: raw || null }] })}
                   >
                     <option value="">—</option>
                     {RELATIONSHIPS.map((r) => (
@@ -216,42 +279,28 @@ export default function FactsPanel({ household, onPatch }: FactsPanelProps) {
                         {r.replace(/_/g, ' ')}
                       </option>
                     ))}
-                  </select>
+                  </DraftSelect>
                 </td>
                 <td>
-                  <select
+                  <YesNoSelect
                     aria-label={`pregnant ${m.id}`}
-                    defaultValue={boolValue(m.is_pregnant)}
-                    onChange={(e) =>
-                      queue({ members: [{ id: m.id, is_pregnant: parseBool(e.target.value) }] })
-                    }
-                  >
-                    <option value="">—</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </select>
+                    committed={m.is_pregnant}
+                    onEdit={(value) => queue({ members: [{ id: m.id, is_pregnant: value }] })}
+                  />
                 </td>
                 <td>
-                  <select
+                  <YesNoSelect
                     aria-label={`disabled ${m.id}`}
-                    defaultValue={boolValue(m.is_disabled)}
-                    onChange={(e) =>
-                      queue({ members: [{ id: m.id, is_disabled: parseBool(e.target.value) }] })
-                    }
-                  >
-                    <option value="">—</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </select>
+                    committed={m.is_disabled}
+                    onEdit={(value) => queue({ members: [{ id: m.id, is_disabled: value }] })}
+                  />
                 </td>
                 <td>
-                  <select
+                  <DraftSelect
                     aria-label={`immigration status of ${m.id}`}
-                    defaultValue={m.immigration_status ?? ''}
-                    onChange={(e) =>
-                      queue({
-                        members: [{ id: m.id, immigration_status: e.target.value || null }],
-                      })
+                    committed={m.immigration_status ?? ''}
+                    onEdit={(raw) =>
+                      queue({ members: [{ id: m.id, immigration_status: raw || null }] })
                     }
                   >
                     <option value="">—</option>
@@ -260,20 +309,14 @@ export default function FactsPanel({ household, onPatch }: FactsPanelProps) {
                         {s.replace(/_/g, ' ')}
                       </option>
                     ))}
-                  </select>
+                  </DraftSelect>
                 </td>
                 <td>
-                  <select
+                  <YesNoSelect
                     aria-label={`student ${m.id}`}
-                    defaultValue={boolValue(m.is_student)}
-                    onChange={(e) =>
-                      queue({ members: [{ id: m.id, is_student: parseBool(e.target.value) }] })
-                    }
-                  >
-                    <option value="">—</option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </select>
+                    committed={m.is_student}
+                    onEdit={(value) => queue({ members: [{ id: m.id, is_student: value }] })}
+                  />
                 </td>
                 <td>
                   <button
@@ -319,12 +362,10 @@ export default function FactsPanel({ household, onPatch }: FactsPanelProps) {
             {income.map((item, i) => (
               <tr key={item.id}>
                 <td>
-                  <select
+                  <DraftSelect
                     aria-label={`member for ${item.id}`}
-                    defaultValue={item.member_id ?? ''}
-                    onChange={(e) =>
-                      queue({ income: [{ id: item.id, member_id: e.target.value || null }] })
-                    }
+                    committed={item.member_id ?? ''}
+                    onEdit={(raw) => queue({ income: [{ id: item.id, member_id: raw || null }] })}
                   >
                     <option value="">—</option>
                     {members.map((m) => (
@@ -332,15 +373,13 @@ export default function FactsPanel({ household, onPatch }: FactsPanelProps) {
                         {m.id}
                       </option>
                     ))}
-                  </select>
+                  </DraftSelect>
                 </td>
                 <td>
-                  <select
+                  <DraftSelect
                     aria-label={`kind of ${item.id}`}
-                    defaultValue={item.kind ?? ''}
-                    onChange={(e) =>
-                      queue({ income: [{ id: item.id, kind: e.target.value || null }] })
-                    }
+                    committed={item.kind ?? ''}
+                    onEdit={(raw) => queue({ income: [{ id: item.id, kind: raw || null }] })}
                   >
                     <option value="">—</option>
                     {KINDS.map((k) => (
@@ -348,28 +387,24 @@ export default function FactsPanel({ household, onPatch }: FactsPanelProps) {
                         {k.replace(/_/g, ' ')}
                       </option>
                     ))}
-                  </select>
+                  </DraftSelect>
                 </td>
                 <td>
-                  <input
+                  <DraftInput
                     type="number"
                     step="0.01"
                     min={0}
                     aria-label={`amount of ${item.id}`}
-                    defaultValue={dollars(item.amount_cents)}
-                    onChange={(e) =>
-                      queue({ income: [{ id: item.id, amount: parseNumber(e.target.value) }] })
-                    }
+                    committed={dollars(item.amount_cents)}
+                    onEdit={(raw) => queue({ income: [{ id: item.id, amount: parseNumber(raw) }] })}
                   />
                   {errorFor(`income.${i}.amount_cents`)}
                 </td>
                 <td>
-                  <select
+                  <DraftSelect
                     aria-label={`frequency of ${item.id}`}
-                    defaultValue={item.frequency ?? ''}
-                    onChange={(e) =>
-                      queue({ income: [{ id: item.id, frequency: e.target.value || null }] })
-                    }
+                    committed={item.frequency ?? ''}
+                    onEdit={(raw) => queue({ income: [{ id: item.id, frequency: raw || null }] })}
                   >
                     <option value="">—</option>
                     {FREQUENCIES.map((f) => (
@@ -377,19 +412,17 @@ export default function FactsPanel({ household, onPatch }: FactsPanelProps) {
                         {f}
                       </option>
                     ))}
-                  </select>
+                  </DraftSelect>
                 </td>
                 <td>
                   {item.frequency === 'hourly' ? (
-                    <input
+                    <DraftInput
                       type="number"
                       min={0}
                       aria-label={`hours per week of ${item.id}`}
-                      defaultValue={item.hours_per_week ?? ''}
-                      onChange={(e) =>
-                        queue({
-                          income: [{ id: item.id, hours_per_week: parseNumber(e.target.value) }],
-                        })
+                      committed={item.hours_per_week ?? ''}
+                      onEdit={(raw) =>
+                        queue({ income: [{ id: item.id, hours_per_week: parseNumber(raw) }] })
                       }
                     />
                   ) : (
@@ -417,76 +450,60 @@ export default function FactsPanel({ household, onPatch }: FactsPanelProps) {
       <div className="facts-grid">
         <label>
           Rent / mortgage ($/mo)
-          <input
+          <DraftInput
             type="number"
             step="0.01"
             min={0}
-            defaultValue={dollars(expenses.rent_or_mortgage_cents)}
-            onChange={(e) =>
-              queue({ expenses: { rent_or_mortgage: parseNumber(e.target.value) } })
-            }
+            committed={dollars(expenses.rent_or_mortgage_cents)}
+            onEdit={(raw) => queue({ expenses: { rent_or_mortgage: parseNumber(raw) } })}
           />
           {errorFor('expenses.rent_or_mortgage_cents')}
         </label>
         <label>
           Utilities included in rent
-          <select
-            defaultValue={boolValue(expenses.utilities_included)}
-            onChange={(e) => queue({ expenses: { utilities_included: parseBool(e.target.value) } })}
-          >
-            <option value="">—</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
+          <YesNoSelect
+            committed={expenses.utilities_included}
+            onEdit={(value) => queue({ expenses: { utilities_included: value } })}
+          />
         </label>
         <label>
           Pays heating / cooling
-          <select
-            defaultValue={boolValue(expenses.pays_heating_cooling)}
-            onChange={(e) =>
-              queue({ expenses: { pays_heating_cooling: parseBool(e.target.value) } })
-            }
-          >
-            <option value="">—</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
+          <YesNoSelect
+            committed={expenses.pays_heating_cooling}
+            onEdit={(value) => queue({ expenses: { pays_heating_cooling: value } })}
+          />
         </label>
         <label>
           Dependent care ($/mo)
-          <input
+          <DraftInput
             type="number"
             step="0.01"
             min={0}
-            defaultValue={dollars(expenses.dependent_care_cents)}
-            onChange={(e) => queue({ expenses: { dependent_care: parseNumber(e.target.value) } })}
+            committed={dollars(expenses.dependent_care_cents)}
+            onEdit={(raw) => queue({ expenses: { dependent_care: parseNumber(raw) } })}
           />
           {errorFor('expenses.dependent_care_cents')}
         </label>
         <label>
           Child support paid out ($/mo)
-          <input
+          <DraftInput
             type="number"
             step="0.01"
             min={0}
-            defaultValue={dollars(expenses.child_support_paid_cents)}
-            onChange={(e) =>
-              queue({ expenses: { child_support_paid: parseNumber(e.target.value) } })
-            }
+            committed={dollars(expenses.child_support_paid_cents)}
+            onEdit={(raw) => queue({ expenses: { child_support_paid: parseNumber(raw) } })}
           />
           {errorFor('expenses.child_support_paid_cents')}
         </label>
         <label>
           Medical expenses, elderly/disabled ($/mo)
-          <input
+          <DraftInput
             type="number"
             step="0.01"
             min={0}
-            defaultValue={dollars(expenses.medical_expenses_elderly_disabled_cents)}
-            onChange={(e) =>
-              queue({
-                expenses: { medical_expenses_elderly_disabled: parseNumber(e.target.value) },
-              })
+            committed={dollars(expenses.medical_expenses_elderly_disabled_cents)}
+            onEdit={(raw) =>
+              queue({ expenses: { medical_expenses_elderly_disabled: parseNumber(raw) } })
             }
           />
           {errorFor('expenses.medical_expenses_elderly_disabled_cents')}

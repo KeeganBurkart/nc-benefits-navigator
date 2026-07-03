@@ -79,6 +79,61 @@ describe('FactsPanel', () => {
     expect(onPatch).toHaveBeenCalledWith({ members: [{ id: 'm2' }] })
   })
 
+  it('re-renders a field when the household prop changes (chat-recorded fact)', () => {
+    const onPatch = vi.fn().mockResolvedValue(undefined)
+    const { rerender } = render(<FactsPanel household={HOUSEHOLD} onPatch={onPatch} />)
+    const buysPrepares = () =>
+      screen.getByLabelText(/Buys & prepares food together/) as HTMLSelectElement
+    expect(buysPrepares().value).toBe('yes')
+
+    // The server records purchases_and_prepares_together=false via the chat;
+    // App passes the fresh household down. The select must show it.
+    rerender(
+      <FactsPanel
+        household={{ ...HOUSEHOLD, purchases_and_prepares_together: false }}
+        onPatch={onPatch}
+      />,
+    )
+    expect(buysPrepares().value).toBe('no')
+
+    // Same for already-rendered inputs (age was the observed stale field class).
+    rerender(
+      <FactsPanel
+        household={{
+          ...HOUSEHOLD,
+          purchases_and_prepares_together: false,
+          members: [{ ...HOUSEHOLD.members[0], age: 62 }],
+        }}
+        onPatch={onPatch}
+      />,
+    )
+    expect((screen.getByLabelText('age of m1') as HTMLInputElement).value).toBe('62')
+  })
+
+  it('does not clobber a user edit in progress when the household prop changes', async () => {
+    const onPatch = vi.fn().mockResolvedValue(undefined)
+    const { rerender } = render(<FactsPanel household={HOUSEHOLD} onPatch={onPatch} />)
+    const county = () => screen.getByDisplayValue(/Dur|New Hanover|Wake/) as HTMLInputElement
+
+    // User is mid-keystroke in the county field…
+    fireEvent.change(screen.getByDisplayValue('New Hanover'), { target: { value: 'Dur' } })
+    expect(county().value).toBe('Dur')
+
+    // …while an unrelated chat update re-renders the panel. The draft wins.
+    rerender(<FactsPanel household={{ ...HOUSEHOLD, county: 'Wake' }} onPatch={onPatch} />)
+    expect(county().value).toBe('Dur')
+
+    // Once the user leaves the field, the committed value shows again.
+    fireEvent.blur(county())
+    expect(county().value).toBe('Wake')
+
+    // And the edit itself was queued for PATCH, not lost.
+    await act(async () => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(onPatch).toHaveBeenCalledWith({ county: 'Dur' })
+  })
+
   it('renders a 422 validation error inline at the offending field', async () => {
     const onPatch = vi
       .fn()
