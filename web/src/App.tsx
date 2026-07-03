@@ -4,7 +4,7 @@ import ActionPlan from './components/ActionPlan'
 import Chat from './components/Chat'
 import FactsPanel from './components/FactsPanel'
 import ResultsCards from './components/ResultsCards'
-import { EPASS_URL } from './lib'
+import { buildSessionExport, EPASS_URL, parseSessionImport } from './lib'
 import type { Household, Patch, ScreeningResult } from './types'
 
 export default function App() {
@@ -61,6 +61,56 @@ export default function App() {
     setScreening(report.screening)
   }
 
+  function exportSession() {
+    if (!household) return
+    const payload = buildSessionExport(household)
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `benefits-screening-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function importSession(file: File) {
+    let imported: Household
+    try {
+      imported = parseSessionImport(await file.text())
+    } catch (e) {
+      window.alert((e as Error).message)
+      return
+    }
+    if (!window.confirm('Importing replaces the current screening — nothing is saved. Continue?')) {
+      return
+    }
+    const old = sessionId
+    setSessionId(null)
+    setHousehold(null)
+    setScreening(null)
+    setChatKey((k) => k + 1)
+    if (old) {
+      try {
+        await deleteSession(old)
+      } catch {
+        // session may already be gone
+      }
+    }
+    try {
+      const created = await createSession()
+      setSessionId(created.sessionId)
+      setDemoMode(created.demoMode)
+      // The exported household is a valid whole-household patch: lists merge
+      // by id into the fresh session's empty household.
+      await patchHousehold(created.sessionId, imported as unknown as Patch)
+      const report = await getReport(created.sessionId)
+      setHousehold(report.household)
+      setScreening(report.screening)
+    } catch (e) {
+      setFatal(`Could not import the session: ${(e as Error).message}`)
+    }
+  }
+
   if (fatal) {
     return (
       <div className="fatal">
@@ -85,6 +135,23 @@ export default function App() {
           <button type="button" onClick={() => window.print()} disabled={!screening}>
             Print action plan
           </button>
+          <button type="button" onClick={exportSession} disabled={!household}>
+            Export session
+          </button>
+          <label className="import-label">
+            Import session
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="import-input"
+              aria-label="Import session file"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (file) void importSession(file)
+              }}
+            />
+          </label>
           <button type="button" onClick={() => void newScreening()}>
             New screening
           </button>

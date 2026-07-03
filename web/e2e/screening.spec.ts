@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 
 // Full screening flow against the real server with NAV_FAKE_LLM=1.
@@ -60,4 +61,73 @@ test('chat → facts panel → edit → results → print plan', async ({ page }
   )
   await expect(plan.locator('.checklist li').first()).toBeVisible()
   await expect(plan).not.toContainText("That's everything")
+})
+
+// Import a session file into a fresh session, then export and compare.
+test('session import populates the panel and export round-trips it', async ({ page }) => {
+  const sessionFile = {
+    app: 'nc-benefits-navigator',
+    kind: 'session-export',
+    version: 1,
+    exported_at: '2026-07-03T00:00:00Z',
+    household: {
+      members: [
+        {
+          id: 'm1',
+          age: 34,
+          relationship: 'self',
+          is_pregnant: false,
+          is_disabled: false,
+          immigration_status: 'citizen',
+          is_student: false,
+        },
+      ],
+      income: [
+        {
+          id: 'i1',
+          member_id: 'm1',
+          kind: 'wages',
+          amount_cents: 120050,
+          frequency: 'monthly',
+          hours_per_week: null,
+        },
+      ],
+      expenses: {
+        rent_or_mortgage_cents: 95000,
+        utilities_included: false,
+        pays_heating_cooling: true,
+        dependent_care_cents: null,
+        child_support_paid_cents: null,
+        medical_expenses_elderly_disabled_cents: null,
+      },
+      county: 'New Hanover',
+      purchases_and_prepares_together: true,
+    },
+  }
+
+  await page.goto('/')
+  page.on('dialog', (dialog) => void dialog.accept())
+  await page.getByLabel('Import session file').setInputFiles({
+    name: 'session.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(sessionFile)),
+  })
+
+  // Imported facts land in the panel and the engine screens them.
+  await expect(page.getByLabel('age of m1')).toHaveValue('34')
+  await expect(page.getByLabel('amount of i1')).toHaveValue('1200.5')
+  await expect(page.locator('.pill')).toHaveCount(4)
+  // The complete income picture yields distance-to-limit readouts.
+  await expect(page.locator('.income-margin').first()).toContainText('under the')
+
+  // Export: the downloaded file carries the same household back out.
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export session' }).click()
+  const download = await downloadPromise
+  const text = await fs.readFile((await download.path())!, 'utf8')
+  const parsed = JSON.parse(text)
+  expect(parsed.kind).toBe('session-export')
+  expect(parsed.household.members[0].age).toBe(34)
+  expect(parsed.household.income[0].amount_cents).toBe(120050)
+  expect(parsed.household.county).toBe('New Hanover')
 })
