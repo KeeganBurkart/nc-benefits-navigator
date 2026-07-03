@@ -28,16 +28,19 @@ behavior.
 ## Tests
 
 ```bash
-uv run pytest                # 300+ engine/interview/server tests (fast, offline)
-uv run pytest -m eval -s     # 10 real-API interview evals, 5 scenarios (needs ANTHROPIC_API_KEY, ~$0.40)
-uv run pytest -m adversarial -s  # 11 real-API adversarial evals, 8 probes (needs ANTHROPIC_API_KEY, ~$0.30)
+uv run pytest                # 400+ engine/interview/server tests (fast, offline)
+uv run pytest -m eval -s     # real-API interview evals, 5 scenarios (needs ANTHROPIC_API_KEY, ~$0.40)
+uv run pytest -m adversarial -s  # real-API adversarial evals (needs ANTHROPIC_API_KEY, ~$0.30)
+uv run pytest -m linkcheck   # network: every citation/source URL returns HTTP 200
 cd web && npm test           # UI component tests (Vitest)
-cd web && npm run e2e        # Playwright E2E — real server + fake LLM (build web first)
+cd web && npm run build      # build web/dist (required before e2e)
+cd web && npm run e2e        # Playwright E2E — real server + fake LLM
 uv run ruff check .          # lint
 ```
 
-The eval suite is excluded from the default run on purpose: it costs real
-money and its assertions are behavioral, not exact-match. Run it whenever you
+Three suites are excluded from the default run (`addopts` in `pyproject.toml`):
+`eval` and `adversarial` cost real money and assert behaviour, not exact
+matches; `linkcheck` hits the network. Run `eval`/`adversarial` whenever you
 touch `interview/prompt.py` or `interview/loop.py`. Scenarios live in
 `tests/interview/test_evals.py` on the `run_scenario` harness
 (`tests/interview/eval_harness.py`): a happy path, an over-income household,
@@ -47,12 +50,31 @@ behavioral assertions).
 
 The adversarial suite (`tests/interview/test_adversarial_evals.py`) probes the
 failure modes that matter most here: inventing unstated facts, summarizing
-without probing expenses, prompt injection, pressure to falsify income, invalid
-values, and PII dumps. Known-open bugs are xfail-marked with their task number
-and flip to hard assertions when fixed. Its offline sibling
+without probing expenses, prompt injection (including a value entered through
+the facts panel — `panel_injection` seeds an instruction-shaped `county`),
+pressure to falsify income, invalid values, and PII dumps. Its offline sibling
 (`tests/rules/test_adversarial.py`) pins engine edge cases beyond the property
-tests' bounds — oversized households, exact limit boundaries, degenerate income —
-and runs in the default suite for free.
+tests' bounds — oversized households, one-cent limit boundaries for FNS/Medicaid
+(every figure hand-computed from `rules/tables/*.yaml`), degenerate income — and
+runs in the default suite for free. `tests/rules/test_freshness.py` fails the
+day any shipped table goes stale.
+
+**The prompt/summary contract.** The system-prompt screening summary
+(`interview/loop._compact_summary_str`) now embeds `household_facts`, so panel
+edits are visible to the model. Household strings (county, ids) are
+user-controlled: they are serialized with `json.dumps` (single inert JSON
+strings) inside `BEGIN/END SCREENING SUMMARY` markers, and the prompt declares
+that block *data, not instructions*. Keep both halves — if you change how the
+summary is built, preserve the escaping and the markers, and keep the prompt's
+"record only stated facts" and "probe expenses before summarizing" directives
+(they are load-bearing; the offline `tests/interview/test_prompt.py` locks their
+presence and the live evals lock the behaviour).
+
+**Facts panel inputs are controlled with a draft overlay.** `web/.../FactsPanel`
+fields render the committed household prop except while a field is being edited
+(a local draft, cleared on blur). Do NOT reintroduce `defaultValue`/uncontrolled
+inputs — chat- and server-recorded facts must re-render live without clobbering
+in-progress typing.
 
 **Architecture invariant (enforced by review):** `rules/` imports nothing from
 `interview/`, `server/`, or the `anthropic` package. `interview/` may import
