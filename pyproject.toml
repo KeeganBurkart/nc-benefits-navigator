@@ -33,8 +33,9 @@ testpaths = ["tests"]
 markers = [
     "eval: real-API interview evals — run manually with `uv run pytest -m eval`",
     "adversarial: real-API adversarial interview evals — run manually with `uv run pytest -m adversarial`",
+    "linkcheck: network tests that fetch citation/source URLs — run manually with `uv run pytest -m linkcheck`",
 ]
-addopts = "-m 'not eval and not adversarial'"
+addopts = "-m 'not eval and not adversarial and not linkcheck'"
 
 [tool.ruff]
 target-version = "py312"
