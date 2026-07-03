@@ -24,9 +24,9 @@ household:
 #   net = 200000 - 135300 = 64700; net limit (size 1) = 130500 -> passes.
 #   allotment = max(1) 29800 - round_half_up(0.3 * 64700 = 19410) = 10390.
 # Medicaid (size 1, countable wages 200000):
-#   no children, not pregnant. Adult expansion limit (138%+5%, size1) = 190190; 200000 > 190190.
+#   no children, not pregnant. Adult expansion limit (133%+5%, size1) = 183540; 200000 > 183540.
 #   Highest reachable limit (CHIP 211%+5%) = 287280, but only children reach it; this adult cannot.
-#   200000 < 287280 so no fail-fast, but per-member screen finds adult over 190190 -> likely_ineligible.
+#   200000 < 287280 so no fail-fast, but per-member screen finds adult over 183540 -> likely_ineligible.
 expected:
   fns: {status: likely_eligible, estimated_benefit_cents: 10390}
   medicaid: {status: likely_ineligible}

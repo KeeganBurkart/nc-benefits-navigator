@@ -17,9 +17,9 @@ effective_from: "2026-04-01"
 effective_to: "2027-03-31"
 values:
   # Medicaid Expansion adults 19-64 (MXP-N). The chart's MXP-N row is governed
-  # by 133% FPL; with the statutory 5% MAGI disregard the effective ACA
-  # threshold is 138%. Contract stores the canonical expansion figure (138).
-  adult_expansion_pct: 138
+  # by 133% FPL; with the statutory 5% MAGI disregard added at screening time
+  # (like every other category here) the effective ACA threshold is 138%.
+  adult_expansion_pct: 133
   # Medicaid for Pregnant Women (MPW), MA-3321 row "196% MPW". Base percentage.
   pregnant_pct: 196
   # Medicaid for Infants and Children (MIC-N), base percentages by NC's actual

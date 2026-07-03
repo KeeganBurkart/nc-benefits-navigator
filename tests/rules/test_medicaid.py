@@ -9,7 +9,7 @@ Reference values used below:
     1=133000 2=180333 3=227667 4=275000 5=322333 6=369667 7=417000 8=464333
     additional_member_cents = 47333
   Medicaid base percents (medicaid.yaml):
-    adult_expansion_pct = 138   pregnant_pct = 196
+    adult_expansion_pct = 133   pregnant_pct = 196
     child_pct_by_age_band: under_1=194 age_1_5=141 age_6_18=107
     child_chip_ceiling_pct = 211
     parent_caretaker_pct = 33
@@ -24,7 +24,7 @@ Reference values used below:
     child CHIP      = 216% * 133000 = 287280
     pregnant        = 201% * 133000 = 267330
     parent/caretaker= 38%  * 133000 = 50540
-    expansion adult = 143% * 133000 = 190190
+    expansion adult = 138% * 133000 = 183540
 """
 from __future__ import annotations
 
@@ -161,7 +161,7 @@ def test_pregnant_at_limit_passes():
 
 def test_pregnant_one_cent_over_fails_to_expansion_then_ineligible():
     # pregnant limit 267330; income 267331 over pregnant limit. Member is 28 so
-    # also tests expansion (143% = 190190) → over that too → ineligible.
+    # also tests expansion (138% = 183540) → over that too → ineligible.
     hh = Household(members=[member("m1", age=28, is_pregnant=True)],
                    income=[income("i1", 267331)])
     r = evaluate(hh)
@@ -208,7 +208,7 @@ def test_parent_caretaker_at_limit_passes_with_caveat():
 def test_parent_caretaker_over_limit_but_child_still_eligible():
     # size 2: parent m1 age 40, child c1 age 10. income 100000.
     #   parent limit 68527 → 100000 over → parent NOT eligible via parent/caretaker.
-    #   parent expansion 143% * 180333 = 257876.19 → 257876; 100000 <= that → parent
+    #   parent expansion 138% * 180333 = 248859.54 → 248860; 100000 <= that → parent
     #     eligible via EXPANSION instead.
     #   child CHIP 389519 → 100000 <= → child eligible.
     # → household eligible; parent/caretaker reason should NOT be the parent's.
@@ -227,19 +227,19 @@ def test_parent_caretaker_over_limit_but_child_still_eligible():
 # ---------------------------------------------------------------------------
 
 def test_expansion_adult_at_limit_passes():
-    # expansion limit size 1 = 190190. income exactly 190190 → eligible.
+    # expansion limit size 1 = 183540. income exactly 183540 → eligible.
     hh = Household(members=[member("m1", age=34)],
-                   income=[income("i1", 190190)])
+                   income=[income("i1", 183540)])
     r = evaluate(hh)
     assert r.status == "likely_eligible"
     assert "medicaid.expansion_adult" in reasons_by_rule(r)
 
 
 def test_expansion_adult_one_cent_over_fails():
-    # income 190191 over expansion limit. Not pregnant, no child → no category.
+    # income 183541 over expansion limit. Not pregnant, no child → no category.
     # nothing missing → likely_ineligible.
     hh = Household(members=[member("m1", age=34)],
-                   income=[income("i1", 190191)])
+                   income=[income("i1", 183541)])
     r = evaluate(hh)
     assert r.status == "likely_ineligible"
 
@@ -252,7 +252,7 @@ def test_ssi_counts_for_fns_but_not_medicaid():
     from rules.programs.fns import evaluate as fns_evaluate
 
     # Single adult, age 34. SSI income 250000/mo. SSI does NOT count for Medicaid.
-    #   Medicaid countable income = 0 → expansion limit 190190 → 0 <= limit → eligible.
+    #   Medicaid countable income = 0 → expansion limit 183540 → 0 <= limit → eligible.
     # SSI DOES count as unearned income for FNS gross test.
     #   FNS size 1 gross limit = 266000; gross 250000 <= → passes gross.
     #   std "1-2" 20900, no earned ded (SSI unearned). net = 250000 - 20900 = 229100.
@@ -268,7 +268,7 @@ def test_ssi_counts_for_fns_but_not_medicaid():
 
 def test_child_support_received_excluded_from_magi():
     # Adult age 34. child_support_received 300000 (excluded) + wages 50000 (counts).
-    # countable = 50000 → expansion 190190 → 50000 <= limit → eligible.
+    # countable = 50000 → expansion 183540 → 50000 <= limit → eligible.
     hh = Household(
         members=[member("m1", age=34)],
         income=[income("i1", 50000, kind="wages"),
@@ -284,7 +284,7 @@ def test_child_support_counts_for_fns_but_not_medicaid():
 
     # Single adult, age 34. child_support_received 300000/mo, no other income.
     #   Medicaid: child support is excluded from MAGI → countable 0 → expansion
-    #     limit 190190 → 0 <= limit → likely_eligible.
+    #     limit 183540 → 0 <= limit → likely_eligible.
     #   FNS: ALL income counts toward gross. gross 300000 > size-1 gross limit
     #     266000 → fails the gross test → likely_ineligible.
     hh = Household(members=[member("m1", age=34)],
@@ -393,10 +393,10 @@ def test_unknown_immigration_status_is_missing_field():
 
 def test_one_eligible_child_among_ineligible_adults():
     # size 3: two adults each over expansion limit, one child clearly eligible.
-    # size 3 FPL 227667. expansion 143% = 325563.81 → 325564.
+    # size 3 FPL 227667. expansion 138% = 314180.46 → 314180.
     #   adults income high → over expansion. child CHIP 216% * 227667 = 491760.72
     #   → 491761. child income share low → eligible.
-    # Put 400000 total income. expansion limit (size 3) 325564 → 400000 over → adults
+    # Put 400000 total income. expansion limit (size 3) 314180 → 400000 over → adults
     #   ineligible. child CHIP 491761 → 400000 <= → child eligible.
     hh = Household(
         members=[member("m1", age=40), member("m2", age=38, relationship="spouse"),
@@ -433,7 +433,7 @@ def test_missing_age_blocks_with_missing_field():
 
 def test_missing_pregnant_only_matters_in_income_window():
     # size 1. is_pregnant None.
-    # income 200000: over expansion (190190) but <= pregnant (267330) → is_pregnant
+    # income 200000: over expansion (183540) but <= pregnant (267330) → is_pregnant
     #   would change outcome → missing members[m1].is_pregnant.
     hh = Household(
         members=[Member(id="m1", age=28, relationship="self", is_disabled=False,
@@ -446,7 +446,7 @@ def test_missing_pregnant_only_matters_in_income_window():
 
 
 def test_missing_pregnant_not_demanded_when_already_eligible():
-    # income 100000 <= expansion 190190 → adult eligible regardless of pregnancy.
+    # income 100000 <= expansion 183540 → adult eligible regardless of pregnancy.
     # is_pregnant None must NOT be demanded.
     hh = Household(
         members=[Member(id="m1", age=28, relationship="self", is_disabled=False,

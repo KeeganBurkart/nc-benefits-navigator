@@ -22,7 +22,7 @@ household:
 #   raw allotment = max(1) 29800 - round_half_up(0.3 * 94100 = 28230) = 1570.
 #   1570 > 0 and below the 2400 minimum (1-2 person households) -> bumped to minimum_allotment 2400.
 # Medicaid (size 1, countable Social Security 115000):
-#   adult expansion limit (138%+5%, size1) = 190190; 115000 <= 190190 -> adult eligible -> likely_eligible.
+#   adult expansion limit (133%+5%, size1) = 183540; 115000 <= 183540 -> adult eligible -> likely_eligible.
 expected:
   fns: {status: likely_eligible, estimated_benefit_cents: 2400}
   medicaid: {status: likely_eligible}

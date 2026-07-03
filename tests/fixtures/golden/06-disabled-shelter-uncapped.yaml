@@ -25,7 +25,7 @@ household:
 #   net = max(120000 - 185050, 0) = 0; net limit (size 1) = 130500 -> passes.
 #   allotment = max(1) 29800 - round_half_up(0.3 * 0 = 0) = 29800 (full maximum allotment).
 # Medicaid (size 1, countable SSDI 120000; SSDI IS countable):
-#   adult expansion limit (138%+5%, size1) = 190190; 120000 <= 190190 -> adult qualifies -> likely_eligible.
+#   adult expansion limit (133%+5%, size1) = 183540; 120000 <= 183540 -> adult qualifies -> likely_eligible.
 expected:
   fns: {status: likely_eligible, estimated_benefit_cents: 29800}
   medicaid: {status: likely_eligible}

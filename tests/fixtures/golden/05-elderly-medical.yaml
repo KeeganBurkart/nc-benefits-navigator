@@ -27,7 +27,7 @@ household:
 #   allotment = max(2) 54600 - round_half_up(0.3 * 112600 = 33780) = 20820.
 #   (Without the medical deduction net would be 159100 and the allotment only 6870 -- the deduction is load-bearing.)
 # Medicaid (size 2, countable Social Security 180000; both adults 63/64 are in MAGI scope, under 65):
-#   adult expansion limit (138%+5%, size2) = 257876; 180000 <= 257876 -> adults qualify -> likely_eligible.
+#   adult expansion limit (133%+5%, size2) = 248860; 180000 <= 248860 -> adults qualify -> likely_eligible.
 expected:
   fns: {status: likely_eligible, estimated_benefit_cents: 20820}
   medicaid: {status: likely_eligible}

@@ -25,7 +25,7 @@ household:
 #   allotment = max(1) 29800 - round_half_up(0.3 * 61150 = 18345) = 11455.
 # Medicaid (size 1):
 #   SSI is NOT a MAGI-countable kind -> countable income = 0.
-#   adult expansion limit (138%+5%, size1) = 190190; 0 <= 190190 -> adult eligible -> likely_eligible.
+#   adult expansion limit (133%+5%, size1) = 183540; 0 <= 183540 -> adult eligible -> likely_eligible.
 #   (Both programs land likely_eligible here, but via opposite income treatment of the same SSI dollars.)
 expected:
   fns: {status: likely_eligible, estimated_benefit_cents: 11455}

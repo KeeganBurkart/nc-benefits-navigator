@@ -488,9 +488,9 @@ def test_medicaid_child_band_edge_at_age_six():
 
 def test_medicaid_child_to_adult_edge_at_age_nineteen():
     # Income 200000: under CHIP ceiling (287280) but over the size-1 expansion
-    # limit (round(133000 * 143/100) = 190190).
+    # limit (round(133000 * 138/100) = 183540).
     #   age 18 -> CHIP-level child coverage -> eligible;
-    #   age 19 -> adult expansion only, and 200000 > 190190 -> ineligible.
+    #   age 19 -> adult expansion only, and 200000 > 183540 -> ineligible.
     eighteen = _medicaid_household(18, 200000, is_pregnant=False)
     nineteen = _medicaid_household(19, 200000, is_pregnant=False)
     assert _medicaid(eighteen).status == "likely_eligible"
@@ -499,7 +499,7 @@ def test_medicaid_child_to_adult_edge_at_age_nineteen():
 
 
 def test_medicaid_expansion_to_abd_edge_at_age_sixty_five():
-    # Income 100000 (under the 190190 expansion limit).
+    # Income 100000 (under the 183540 expansion limit).
     #   age 64 -> expansion adult -> eligible;
     #   age 65 -> out of MAGI scope, ABD hand-off -> needs_more_info.
     sixtyfour = _medicaid_household(64, 100000, is_pregnant=False)

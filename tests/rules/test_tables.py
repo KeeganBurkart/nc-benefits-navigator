@@ -257,7 +257,8 @@ def test_medicaid_has_all_required_keys() -> None:
 
 def test_medicaid_expansion_and_disregard() -> None:
     v = load_table("medicaid").values
-    assert v["adult_expansion_pct"] == 138
+    # Base percentage; the 5% MAGI disregard is added at screening (133+5=138%).
+    assert v["adult_expansion_pct"] == 133
     assert v["magi_disregard_pct"] == 5
 
 
