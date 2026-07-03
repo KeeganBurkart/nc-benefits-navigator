@@ -1,5 +1,6 @@
 import { buildChecklist, centsToDollars, DISCLAIMER, EPASS_URL, STATUS_LABELS } from '../lib'
 import type { ScreeningResult } from '../types'
+import { hasExpeditedFlag } from './NextSteps'
 
 /** Printable action plan. Hidden on screen; shown alone via @media print. */
 export default function ActionPlan({ screening }: { screening: ScreeningResult }) {
@@ -64,6 +65,35 @@ export default function ActionPlan({ screening }: { screening: ScreeningResult }
             : 'your county DSS office'}
           .
         </p>
+        {screening.household.is_homeless && (
+          <p className="homeless-note">
+            You do not need a fixed address or a mailing address to apply — DSS must accept your
+            application, and you can use a shelter, a friend&apos;s address, or general delivery
+            for mail.
+          </p>
+        )}
+      </section>
+
+      <section className="what-next">
+        <h2>What happens next</h2>
+        <ul>
+          <li>
+            DSS will schedule an interview — usually by phone. Missing documents do not stop you
+            from applying; you can send them after.
+          </li>
+          <li>
+            Food assistance (FNS) decisions usually come within 30 days
+            {hasExpeditedFlag(screening) &&
+              ' — but this household appears to qualify for EXPEDITED service, which must be decided within 7 calendar days; say "expedited service" when applying'}
+            . Medicaid decisions usually come within 45 days.
+          </li>
+          <li>Benefits count from the day you apply, so apply as soon as you can.</li>
+          <li>
+            If you disagree with a decision — or were denied before and this screening suggests
+            you qualify — you have the right to a fair hearing. Ask DSS how to request one, or
+            contact Legal Aid of North Carolina (legalaidnc.org) for free help.
+          </li>
+        </ul>
       </section>
 
       <p className="plan-disclaimer">{DISCLAIMER}</p>

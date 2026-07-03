@@ -3,8 +3,9 @@ import { createSession, deleteSession, getReport, patchHousehold } from './api'
 import ActionPlan from './components/ActionPlan'
 import Chat from './components/Chat'
 import FactsPanel from './components/FactsPanel'
+import NextSteps from './components/NextSteps'
 import ResultsCards from './components/ResultsCards'
-import { buildSessionExport, EPASS_URL, parseSessionImport } from './lib'
+import { buildCaseNote, buildSessionExport, EPASS_URL, parseSessionImport } from './lib'
 import type { Household, Patch, ScreeningResult } from './types'
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
   const [screening, setScreening] = useState<ScreeningResult | null>(null)
   const [fatal, setFatal] = useState<string | null>(null)
   const [chatKey, setChatKey] = useState(0)
+  const [noteCopied, setNoteCopied] = useState(false)
   const started = useRef(false)
 
   const startSession = useCallback(async () => {
@@ -59,6 +61,13 @@ export default function App() {
     const report = await getReport(sessionId)
     setHousehold(report.household)
     setScreening(report.screening)
+  }
+
+  async function copyCaseNote() {
+    if (!screening) return
+    await navigator.clipboard.writeText(buildCaseNote(screening))
+    setNoteCopied(true)
+    window.setTimeout(() => setNoteCopied(false), 2000)
   }
 
   function exportSession() {
@@ -135,6 +144,9 @@ export default function App() {
           <button type="button" onClick={() => window.print()} disabled={!screening}>
             Print action plan
           </button>
+          <button type="button" onClick={() => void copyCaseNote()} disabled={!screening}>
+            {noteCopied ? 'Copied ✓' : 'Copy case note'}
+          </button>
           <button type="button" onClick={exportSession} disabled={!household}>
             Export session
           </button>
@@ -169,6 +181,7 @@ export default function App() {
         <section className="pane facts-pane" aria-label="Household facts and results">
           <FactsPanel household={household} onPatch={applyPatch} />
           <ResultsCards screening={screening} />
+          <NextSteps screening={screening} />
         </section>
       </main>
       <footer className="app-footer">

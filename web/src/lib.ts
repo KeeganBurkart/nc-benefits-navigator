@@ -70,6 +70,8 @@ const LEAF_QUESTIONS: Record<string, string> = {
     'How much are medical expenses for elderly or disabled members?',
   county: 'What NC county does the household live in?',
   purchases_and_prepares_together: 'Does everyone buy and prepare food together?',
+  is_homeless: 'Does the household have a fixed place to live?',
+  liquid_resources_cents: 'How much cash does the household have on hand, including bank accounts?',
   members: 'Who is in the household?',
 }
 
@@ -89,6 +91,42 @@ export function marginSummary(m: IncomeMargin): string {
   const amount = centsToDollars(Math.abs(m.margin_cents))
   const direction = m.margin_cents > 0 ? 'under' : 'over'
   return `Counted income is ${amount}/month ${direction} the ${m.test_label}.`
+}
+
+// ---- Case-note summary (deterministic; no LLM involved) ----
+
+/** One paragraph a worker can paste into their agency's case-management
+ * system. Deliberately contains no identifying details beyond what the
+ * screening itself used. */
+export function buildCaseNote(screening: ScreeningResult, now: Date = new Date()): string {
+  const date = now.toLocaleDateString('en-US', { dateStyle: 'medium' })
+  const hh = screening.household
+  const parts: string[] = []
+  parts.push(
+    `Benefits screening completed ${date} using NC Benefits Navigator ` +
+      `(household of ${hh.members.length}${hh.county ? `, ${hh.county} County` : ''}).`,
+  )
+  for (const p of screening.programs) {
+    let line = `${p.program_label}: ${STATUS_LABELS[p.status].toLowerCase()}`
+    if (p.estimated_benefit_cents !== null) {
+      line += ` (est. ${centsToDollars(p.estimated_benefit_cents)}/mo)`
+    }
+    parts.push(line + '.')
+  }
+  const expedited = screening.programs.some((p) =>
+    p.reasons.some((r) => r.rule_id === 'fns.expedited'),
+  )
+  if (expedited) {
+    parts.push('Household flagged for expedited FNS service (7-day decision).')
+  }
+  if (screening.missing_fields.length > 0) {
+    parts.push(`Information still needed: ${screening.missing_fields.length} item(s).`)
+  }
+  parts.push(
+    'Client given plain-language action plan and document checklist. ' +
+      'Screening estimate only — eligibility is determined by county DSS.',
+  )
+  return parts.join(' ')
 }
 
 // ---- Session export / import (client-side only; nothing persists) ----
