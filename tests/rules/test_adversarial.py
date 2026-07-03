@@ -16,8 +16,6 @@ real bugs, not test noise.
 """
 from __future__ import annotations
 
-import pytest
-
 from rules.engine import screen_all
 from rules.models import Household, IncomeItem, monthly_cents
 from rules.programs._shared import pct_of_fpl
@@ -241,16 +239,19 @@ def test_dangling_income_member_id_still_counts():
     assert statuses["fns"] == "likely_ineligible"  # the $100k/mo counted despite the dangling ref
 
 
-@pytest.mark.xfail(
-    reason="fns.py clamps size_for_tables to 1, so an all-excluded household "
-    "screens as size 1 and can come back eligible with nobody to receive it (task #20)",
-    strict=True,
-)
 def test_sole_member_without_qualified_status_is_ineligible():
     hh = _full_household([_member("m1", 30, immigration_status="not_qualified")], [_income(100000)])
-    statuses = _assert_all_valid(hh)
+    result = screen_all(hh)
+    statuses = {p.program: p.status for p in result.programs}
     # The FNS unit is empty — nobody in this household can receive FNS.
     assert statuses["fns"] == "likely_ineligible"
+    fns = next(p for p in result.programs if p.program == "fns")
+    assert [r.rule_id for r in fns.reasons] == ["fns.immigration"]
+    # The FNS-specific rule must not leak into the other programs: this
+    # household's income ($1,000/mo, size 1) is under the WIC and Lifeline
+    # limits, and the sole member is 30, so WIC fails only categorically.
+    assert statuses["lifeline"] == "likely_eligible"
+    assert statuses["wic"] == "likely_ineligible"
 
 
 def test_sole_member_without_qualified_status_wic_unblocked():

@@ -383,6 +383,27 @@ def evaluate(household: Household) -> ProgramResult:
             missing_fields=_dedup(missing),
         )
 
+    # Members exist but none has a qualifying status: the FNS unit is empty,
+    # so there is nobody a benefit could be issued to. Deciding on income
+    # tables clamped to size 1 would invent a phantom recipient.
+    if household.members and unit_size == 0:
+        reasons.append(_reason(
+            "fns.immigration",
+            "No one in this household has an immigration status that qualifies "
+            "for FNS, so there is no one who could receive this benefit. Other "
+            "programs have different rules — WIC, for example, has no "
+            "immigration requirement.",
+        ))
+        return ProgramResult(
+            program="fns",
+            program_label=PROGRAM_LABEL,
+            status="likely_ineligible",
+            reasons=reasons,
+            estimated_benefit_cents=None,
+            required_documents=documents,
+            missing_fields=[],
+        )
+
     size_for_tables = max(unit_size, 1)
 
     # --- Phase 3: gross test ---
