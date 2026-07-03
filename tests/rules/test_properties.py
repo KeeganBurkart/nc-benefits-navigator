@@ -362,6 +362,15 @@ def test_output_shape_invariants(hh: Household):
         for r in program.reasons:
             assert r.citation.url, "citation url must be non-empty"
             assert r.citation.url.startswith("https"), f"citation url must be https: {r.citation.url!r}"
+        m = program.income_margin
+        if m is not None:
+            assert m.margin_cents == m.limit_cents - m.income_cents
+            assert m.limit_cents > 0 and m.income_cents >= 0
+            assert m.test_label
+            # An FNS household over its gross limit is never eligible: the
+            # margin must agree with the verdict it describes.
+            if program.program == "fns" and "gross" in m.test_label and m.margin_cents < 0:
+                assert program.status == "likely_ineligible"
 
 
 # ---------------------------------------------------------------------------

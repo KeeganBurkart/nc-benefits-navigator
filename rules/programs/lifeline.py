@@ -26,7 +26,7 @@ from rules.models import Household, monthly_cents
 from rules.programs import fns, medicaid
 from rules.programs._shared import INCOME_DOC_NAMES as _INCOME_DOC_NAMES
 from rules.programs._shared import dedup, fmt, pct_of_fpl, reason
-from rules.programs.types import DocumentRequirement, ProgramResult, Reason
+from rules.programs.types import DocumentRequirement, IncomeMargin, ProgramResult, Reason
 from rules.tables.loader import load_table
 
 PROGRAM_LABEL = "Lifeline (phone/internet discount)"
@@ -37,7 +37,7 @@ _ONE_PER_HOUSEHOLD = (
 )
 
 
-def _result(status, reasons, missing, documents, benefit) -> ProgramResult:
+def _result(status, reasons, missing, documents, benefit, margin=None) -> ProgramResult:
     return ProgramResult(
         program="lifeline",
         program_label=PROGRAM_LABEL,
@@ -46,6 +46,7 @@ def _result(status, reasons, missing, documents, benefit) -> ProgramResult:
         estimated_benefit_cents=benefit,
         required_documents=documents,
         missing_fields=dedup(missing),
+        income_margin=margin,
     )
 
 
@@ -100,6 +101,17 @@ def evaluate(household: Household) -> ProgramResult:
     size = max(len(household.members), 1)
     limit = pct_of_fpl(int(values["percent_of_fpl"]), size)
 
+    margin = (
+        IncomeMargin(
+            test_label=f"Lifeline income limit (135% FPL, household of {size})",
+            limit_cents=limit,
+            income_cents=inc,
+            margin_cents=limit - inc,
+        )
+        if complete
+        else None
+    )
+
     if complete and inc <= limit:
         return _result(
             "likely_eligible",
@@ -113,6 +125,7 @@ def evaluate(household: Household) -> ProgramResult:
             [],
             documents,
             discount,
+            margin,
         )
 
     # --- Qualifying program via this engine's own FNS/Medicaid screen ---
@@ -132,6 +145,7 @@ def evaluate(household: Household) -> ProgramResult:
             [],
             documents,
             discount,
+            margin,
         )
 
     # Not eligible on what we know so far. If the income picture is incomplete,
@@ -148,7 +162,7 @@ def evaluate(household: Household) -> ProgramResult:
         f"limit of {fmt(limit)} for this household size, and the household did not "
         f"screen as likely eligible for a qualifying program (FNS, Medicaid, or SSI).",
     )]
-    return _result("likely_ineligible", reasons, [], documents, None)
+    return _result("likely_ineligible", reasons, [], documents, None, margin)
 
 
 def _build_documents(household: Household) -> list[DocumentRequirement]:

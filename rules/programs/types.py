@@ -65,6 +65,25 @@ class DocumentRequirement(BaseModel):
     rule_id: str
 
 
+class IncomeMargin(BaseModel):
+    """How far the household's counted income sits from the governing income
+    limit of the one test named in ``test_label``.
+
+    ``margin_cents = limit_cents - income_cents``: positive means under the
+    limit (headroom), negative means over it. This is a caseworker aid for
+    spotting households near a benefit cliff — it is informational and never
+    decides ``status`` (a household can be under its gross limit yet fail the
+    net test, or over WIC's limit yet eligible adjunctively). Only computed
+    when the counted income is complete."""
+
+    model_config = ConfigDict(frozen=True)
+
+    test_label: str
+    limit_cents: int
+    income_cents: int
+    margin_cents: int
+
+
 class ProgramResult(BaseModel):
     """The full screening result for a single program."""
 
@@ -77,3 +96,4 @@ class ProgramResult(BaseModel):
     estimated_benefit_cents: int | None
     required_documents: list[DocumentRequirement]
     missing_fields: list[str]
+    income_margin: IncomeMargin | None = None

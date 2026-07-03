@@ -1,4 +1,4 @@
-import { centsToDollars, missingFieldQuestion, STATUS_LABELS } from '../lib'
+import { centsToDollars, marginSummary, missingFieldQuestion, STATUS_LABELS } from '../lib'
 import type { ProgramResult, ScreeningResult } from '../types'
 
 function ProgramCard({ result }: { result: ProgramResult }) {
@@ -10,6 +10,15 @@ function ProgramCard({ result }: { result: ProgramResult }) {
       </div>
       {result.estimated_benefit_cents !== null && (
         <p className="benefit">{centsToDollars(result.estimated_benefit_cents)}/month estimated</p>
+      )}
+      {result.income_margin && (
+        <p
+          className={`income-margin ${
+            result.income_margin.margin_cents >= 0 ? 'income-margin-under' : 'income-margin-over'
+          }`}
+        >
+          {marginSummary(result.income_margin)}
+        </p>
       )}
       {result.reasons.length > 0 && (
         <ul className="reasons">

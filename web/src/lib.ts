@@ -1,4 +1,4 @@
-import type { ScreeningResult, Status } from './types'
+import type { Household, IncomeMargin, ScreeningResult, Status } from './types'
 
 // Must match rules.engine.DISCLAIMER exactly.
 export const DISCLAIMER =
@@ -80,4 +80,52 @@ export function missingFieldQuestion(path: string): string {
   const idMatch = path.match(/^members\[([^\]]+)\]\./)
   if (idMatch) return `${question} (${idMatch[1]})`
   return question
+}
+
+/** One-line distance-to-limit readout, e.g.
+ * "Counted income is $660/month under the FNS gross income limit (…)". */
+export function marginSummary(m: IncomeMargin): string {
+  if (m.margin_cents === 0) return `Counted income is exactly at the ${m.test_label}.`
+  const amount = centsToDollars(Math.abs(m.margin_cents))
+  const direction = m.margin_cents > 0 ? 'under' : 'over'
+  return `Counted income is ${amount}/month ${direction} the ${m.test_label}.`
+}
+
+// ---- Session export / import (client-side only; nothing persists) ----
+
+export interface SessionExport {
+  app: 'nc-benefits-navigator'
+  kind: 'session-export'
+  version: 1
+  exported_at: string
+  household: Household
+}
+
+export function buildSessionExport(household: Household): SessionExport {
+  return {
+    app: 'nc-benefits-navigator',
+    kind: 'session-export',
+    version: 1,
+    exported_at: new Date().toISOString(),
+    household,
+  }
+}
+
+/** Parse an exported session file. Throws Error with a user-facing message. */
+export function parseSessionImport(text: string): Household {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw new Error('That file is not valid JSON.')
+  }
+  const payload = parsed as Partial<SessionExport> | null
+  if (!payload || typeof payload !== 'object' || payload.kind !== 'session-export') {
+    throw new Error('That file is not a Benefits Navigator session export.')
+  }
+  const hh = payload.household
+  if (!hh || typeof hh !== 'object' || !Array.isArray(hh.members) || !Array.isArray(hh.income)) {
+    throw new Error('The session file is missing its household data.')
+  }
+  return hh
 }

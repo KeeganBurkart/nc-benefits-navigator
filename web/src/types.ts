@@ -72,6 +72,13 @@ export interface DocumentRequirement {
   rule_id: string
 }
 
+export interface IncomeMargin {
+  test_label: string
+  limit_cents: number
+  income_cents: number
+  margin_cents: number
+}
+
 export interface ProgramResult {
   program: 'fns' | 'medicaid' | 'wic' | 'lifeline'
   program_label: string
@@ -80,6 +87,7 @@ export interface ProgramResult {
   estimated_benefit_cents: number | null
   required_documents: DocumentRequirement[]
   missing_fields: string[]
+  income_margin: IncomeMargin | null
 }
 
 export interface ScreeningResult {

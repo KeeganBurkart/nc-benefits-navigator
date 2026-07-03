@@ -29,7 +29,7 @@ from rules.models import Household, Member, monthly_cents
 from rules.programs import fns, medicaid
 from rules.programs._shared import INCOME_DOC_NAMES as _INCOME_DOC_NAMES
 from rules.programs._shared import dedup, fmt, pct_of_fpl, reason
-from rules.programs.types import DocumentRequirement, ProgramResult, Reason
+from rules.programs.types import DocumentRequirement, IncomeMargin, ProgramResult, Reason
 from rules.tables.loader import load_table
 
 PROGRAM_LABEL = "WIC"
@@ -37,7 +37,7 @@ PROGRAM_LABEL = "WIC"
 _CHILD_MAX_AGE = 4  # children under 5 are categorically eligible
 
 
-def _result(status, reasons, missing, documents) -> ProgramResult:
+def _result(status, reasons, missing, documents, margin=None) -> ProgramResult:
     return ProgramResult(
         program="wic",
         program_label=PROGRAM_LABEL,
@@ -46,6 +46,7 @@ def _result(status, reasons, missing, documents) -> ProgramResult:
         estimated_benefit_cents=None,
         required_documents=documents,
         missing_fields=dedup(missing),
+        income_margin=margin,
     )
 
 
@@ -123,6 +124,18 @@ def evaluate(household: Household) -> ProgramResult:
     size = max(len(members) + pregnant_count, 1)
     limit = pct_of_fpl(int(values["percent_of_fpl"]), size)
 
+    size_label = (
+        f"household of {size}, counting each pregnancy as an extra member"
+        if pregnant_count
+        else f"household of {size}"
+    )
+    margin = IncomeMargin(
+        test_label=f"WIC income limit (185% FPL, {size_label})",
+        limit_cents=limit,
+        income_cents=inc,
+        margin_cents=limit - inc,
+    )
+
     reasons: list[Reason] = []
     if inc <= limit:
         for m in categorical:
@@ -140,7 +153,7 @@ def evaluate(household: Household) -> ProgramResult:
             f"The household's gross monthly income ({fmt(inc)}) is at or below the "
             f"WIC limit of {fmt(limit)} for this household size{size_note}.",
         ))
-        return _result("likely_eligible", reasons, [], documents)
+        return _result("likely_eligible", reasons, [], documents, margin)
 
     # Over the 185% limit — adjunctive income eligibility via this engine's own
     # FNS/Medicaid screen (worded as contingent on actual approval).
@@ -162,7 +175,7 @@ def evaluate(household: Household) -> ProgramResult:
             f"programs is automatically income-eligible for WIC. If they are "
             f"approved there, WIC income rules are satisfied.",
         ))
-        return _result("likely_eligible", reasons, [], documents)
+        return _result("likely_eligible", reasons, [], documents, margin)
 
     reasons.append(reason(
         "wic.income",
@@ -171,7 +184,7 @@ def evaluate(household: Household) -> ProgramResult:
         f"as likely eligible for FNS or Medicaid (which would satisfy WIC's income "
         f"rule automatically).",
     ))
-    return _result("likely_ineligible", reasons, [], documents)
+    return _result("likely_ineligible", reasons, [], documents, margin)
 
 
 def _build_documents(household: Household) -> list[DocumentRequirement]:

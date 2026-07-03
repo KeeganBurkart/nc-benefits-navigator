@@ -27,7 +27,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from rules.models import Household, Member, monthly_cents
 from rules.programs._shared import INCOME_DOC_NAMES as _INCOME_DOC_NAMES
 from rules.programs._shared import dedup, fmt, reason
-from rules.programs.types import DocumentRequirement, ProgramResult, Reason
+from rules.programs.types import DocumentRequirement, IncomeMargin, ProgramResult, Reason
 from rules.tables.loader import load_table
 
 PROGRAM_LABEL = "NC Medicaid"
@@ -133,6 +133,50 @@ def _phase_countable_income(household: Household) -> tuple[int, bool, list[str]]
         total += m
 
     return total, complete, missing
+
+
+def _income_margin(
+    values, members: list[Member], inc: int, size: int, has_minor: bool
+) -> IncomeMargin | None:
+    """Distance from countable MAGI income to the HIGHEST limit any current
+    member could reach under their applicable category. Informational only;
+    mirrors the per-member category priorities in ``_screen_member``. None when
+    no member has an applicable MAGI category."""
+    disregard = int(values["magi_disregard_pct"])
+    best: tuple[int, str] | None = None
+    for m in members:
+        if m.immigration_status == "not_qualified" or m.age is None:
+            continue
+        if m.age <= _CHILD_MAX_AGE:
+            cand = (
+                _limit(int(values["child_chip_ceiling_pct"]), disregard, size),
+                "children's coverage (CHIP ceiling)",
+            )
+        elif m.is_pregnant:
+            cand = (
+                _limit(int(values["pregnant_pct"]), disregard, size),
+                "coverage for pregnant women",
+            )
+        elif m.age <= _EXPANSION_MAX_AGE:
+            cand = (
+                _limit(int(values["adult_expansion_pct"]), disregard, size),
+                "adult expansion coverage",
+            )
+        elif has_minor:
+            cand = (_maf_cn_limit(values, disregard, size), "parent/caretaker coverage")
+        else:
+            continue
+        if best is None or cand[0] > best[0]:
+            best = cand
+    if best is None:
+        return None
+    limit, category = best
+    return IncomeMargin(
+        test_label=f"highest applicable Medicaid limit — {category}",
+        limit_cents=limit,
+        income_cents=inc,
+        margin_cents=limit - inc,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -313,6 +357,10 @@ def evaluate(household: Household) -> ProgramResult:
 
     has_minor = any(m.age is not None and m.age <= _CHILD_MAX_AGE for m in members)
 
+    income_margin = (
+        _income_margin(values, members, inc, size, has_minor) if income_complete else None
+    )
+
     # --- Fail-fast: if known countable income already exceeds the highest limit
     # ANY member could reach (child CHIP ceiling), no member can qualify. ---
     highest_limit = _limit(
@@ -333,6 +381,7 @@ def evaluate(household: Household) -> ProgramResult:
             estimated_benefit_cents=None,
             required_documents=documents,
             missing_fields=[],
+            income_margin=income_margin,
         )
 
     # --- Per-member screening ---
@@ -361,6 +410,7 @@ def evaluate(household: Household) -> ProgramResult:
             estimated_benefit_cents=None,
             required_documents=documents,
             missing_fields=[],
+            income_margin=income_margin,
         )
 
     # No one eligible. Incomplete countable income, a blocking field, or a 65+
@@ -375,6 +425,7 @@ def evaluate(household: Household) -> ProgramResult:
             estimated_benefit_cents=None,
             required_documents=documents,
             missing_fields=blocking_missing,
+            income_margin=income_margin,
         )
 
     # No one eligible, nothing missing → ineligible.
@@ -386,6 +437,7 @@ def evaluate(household: Household) -> ProgramResult:
         estimated_benefit_cents=None,
         required_documents=documents,
         missing_fields=[],
+        income_margin=income_margin,
     )
 
 

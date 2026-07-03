@@ -29,6 +29,7 @@ from rules.programs._shared import fmt as _fmt
 from rules.programs._shared import reason as _reason
 from rules.programs.types import (
     DocumentRequirement,
+    IncomeMargin,
     ProgramResult,
     Reason,
 )
@@ -406,6 +407,22 @@ def evaluate(household: Household) -> ProgramResult:
 
     size_for_tables = max(unit_size, 1)
 
+    # Distance-to-limit readout for the test that gates this household: the
+    # 200% BBCE gross test, or — since elderly/disabled units skip it — the
+    # net test (attached at phase 5, once deductions are known). Informational
+    # only; never decides status.
+    income_margin: IncomeMargin | None = None
+    if income_complete and not has_elderly_disabled:
+        gross_limit = _size_lookup(values["gross_limit_200pct_cents"], size_for_tables)
+        income_margin = IncomeMargin(
+            test_label=(
+                f"FNS gross income limit (200% FPL, household of {size_for_tables})"
+            ),
+            limit_cents=gross_limit,
+            income_cents=gross,
+            margin_cents=gross_limit - gross,
+        )
+
     # --- Phase 3: gross test ---
     gross_failed, gross_reasons = _phase_gross_test(
         values, gross, size_for_tables, has_elderly_disabled
@@ -421,6 +438,7 @@ def evaluate(household: Household) -> ProgramResult:
             estimated_benefit_cents=None,
             required_documents=documents,
             missing_fields=[],
+            income_margin=income_margin,
         )
 
     # --- Phase 4: deduction chain ---
@@ -440,11 +458,27 @@ def evaluate(household: Household) -> ProgramResult:
             estimated_benefit_cents=None,
             required_documents=documents,
             missing_fields=blocking_missing,
+            income_margin=income_margin,
         )
 
     # --- Phase 5: net income test + allotment ---
     status, benefit, net_reasons = _phase_net_and_allotment(values, gross, deductions, size_for_tables)
     reasons.extend(net_reasons)
+
+    if income_complete and has_elderly_disabled:
+        # The gross test was waived, so the net test is the one that gates
+        # this household; its inputs are only known now, after deductions.
+        net = max(gross - deductions, 0)
+        net_limit = _size_lookup(values["net_limit_100pct_cents"], size_for_tables)
+        income_margin = IncomeMargin(
+            test_label=(
+                f"FNS net income limit (100% FPL, household of {size_for_tables}; "
+                f"gross test waived for age 60+/disability)"
+            ),
+            limit_cents=net_limit,
+            income_cents=net,
+            margin_cents=net_limit - net,
+        )
 
     return ProgramResult(
         program="fns",
@@ -454,6 +488,7 @@ def evaluate(household: Household) -> ProgramResult:
         estimated_benefit_cents=benefit,
         required_documents=documents,
         missing_fields=[],
+        income_margin=income_margin,
     )
 
 

@@ -54,6 +54,7 @@ export function program(over: Partial<ProgramResult>): ProgramResult {
     estimated_benefit_cents: 29100,
     required_documents: [{ name: 'Pay stubs', why: 'Verify wages', rule_id: 'fns_income_docs' }],
     missing_fields: [],
+    income_margin: null,
     ...over,
   }
 }
