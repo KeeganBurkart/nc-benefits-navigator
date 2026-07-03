@@ -10,11 +10,15 @@ the hand-picked golden fixtures:
 5. Output shape invariants: citation urls are https, statuses are in the
    Literal, and every missing-field path matches the dotted-path regex.
 
+6. Cross-program invariants: WIC catches an over-income household adjunctively
+   when Medicaid/FNS is eligible; Lifeline never income-resolves while FNS and
+   Medicaid are both undecided.
+
 Households are generated within the model's validation bounds (age 0..125,
-cents >= 0, valid literals, unique ids), covering 0..6 members, partial/missing
-fields everywhere, every income kind/frequency (incl. hourly with/without
-hours), expenses present/absent, all immigration statuses, and
-purchases_and_prepares_together None/True/False.
+cents >= 0, valid literals, unique ids), covering 0..10 members and income up
+to $50k/month, partial/missing fields everywhere, every income kind/frequency
+(incl. hourly with/without hours), expenses present/absent, all immigration
+statuses, and purchases_and_prepares_together None/True/False.
 """
 from __future__ import annotations
 
@@ -25,6 +29,7 @@ from hypothesis import strategies as st
 
 from rules.engine import screen_all
 from rules.models import Expenses, Household, IncomeItem, Member
+from rules.programs._shared import pct_of_fpl
 from rules.programs.types import ProgramResult
 
 _STATUSES = {"likely_eligible", "likely_ineligible", "needs_more_info"}
@@ -48,13 +53,15 @@ _INCOME_KINDS = [
 ]
 _FREQUENCIES = [None, "hourly", "weekly", "biweekly", "semimonthly", "monthly", "yearly"]
 
-_cents = st.integers(min_value=0, max_value=2_000_000)
+# Bounds widened now that the size- and FPL-extrapolation paths (>8/>10
+# members) are exercised: up to 10 members and $50k/month per income item.
+_cents = st.integers(min_value=0, max_value=5_000_000)
 _opt_bool = st.sampled_from([None, True, False])
 
 
 @st.composite
 def _members(draw) -> list[Member]:
-    n = draw(st.integers(min_value=0, max_value=6))
+    n = draw(st.integers(min_value=0, max_value=10))
     out: list[Member] = []
     for i in range(n):
         out.append(
@@ -84,7 +91,7 @@ def _income(draw) -> list[IncomeItem]:
         out.append(
             IncomeItem(
                 id=f"i{i}",
-                member_id=draw(st.one_of(st.none(), st.sampled_from([f"m{j}" for j in range(6)]))),
+                member_id=draw(st.one_of(st.none(), st.sampled_from([f"m{j}" for j in range(10)]))),
                 kind=draw(st.sampled_from(_INCOME_KINDS)),
                 amount_cents=draw(st.one_of(st.none(), _cents)),
                 frequency=freq,
@@ -290,3 +297,88 @@ def test_output_shape_invariants(hh: Household):
         for r in program.reasons:
             assert r.citation.url, "citation url must be non-empty"
             assert r.citation.url.startswith("https"), f"citation url must be https: {r.citation.url!r}"
+
+
+# ---------------------------------------------------------------------------
+# 6. Cross-program invariants
+# ---------------------------------------------------------------------------
+
+
+@st.composite
+def wic_adjunctive_households(draw) -> Household:
+    """A WIC-categorical lone child whose gross income sits ABOVE the WIC 185%
+    limit but at/under the children's-Medicaid CHIP ceiling (216% FPL), so
+    Medicaid is likely_eligible while WIC fails its own income test.
+
+    For a size-1 household: WIC limit = pct_of_fpl(185, 1), CHIP ceiling =
+    pct_of_fpl(216, 1). Income drawn strictly between them forces the
+    adjunctive pathway. The child's age (0..4) keeps WIC categorical.
+    """
+    wic_limit = pct_of_fpl(185, 1)
+    chip_ceiling = pct_of_fpl(216, 1)
+    income = draw(st.integers(min_value=wic_limit + 1, max_value=chip_ceiling))
+    age = draw(st.integers(min_value=0, max_value=4))
+    return Household(
+        members=[
+            Member(
+                id="m1",
+                age=age,
+                relationship="self",
+                is_pregnant=False,
+                is_disabled=False,
+                immigration_status="citizen",
+                is_student=False,
+            )
+        ],
+        income=[IncomeItem(id="i0", member_id="m1", kind="wages", amount_cents=income, frequency="monthly")],
+        expenses=Expenses(),
+        county="Wake",
+        purchases_and_prepares_together=True,
+    )
+
+
+@settings(max_examples=150, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(wic_adjunctive_households())
+def test_wic_adjunctive_fires_when_medicaid_eligible_and_over_wic_income(hh: Household):
+    result = screen_all(hh)
+    wic = _by_program(result, "wic")
+    medicaid = _by_program(result, "medicaid")
+    fns = _by_program(result, "fns")
+
+    # Precondition holds by construction: FNS or Medicaid is eligible and the
+    # household's gross income exceeds the WIC limit.
+    assert medicaid.status == "likely_eligible" or fns.status == "likely_eligible"
+    gross = sum(i.amount_cents for i in hh.income)
+    assert gross > pct_of_fpl(185, 1)
+
+    # The invariant: WIC must catch this household adjunctively, not drop it.
+    assert wic.status == "likely_eligible"
+    assert any(r.rule_id == "wic.adjunctive" for r in wic.reasons)
+
+
+@settings(max_examples=400, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(households())
+def test_lifeline_never_income_resolves_while_fns_and_medicaid_undecided(hh: Household):
+    """Lifeline must not reach an income-grounded verdict while both FNS and
+    Medicaid are still needs_more_info.
+
+    Concretely: whenever FNS and Medicaid are BOTH needs_more_info, Lifeline is
+    never likely_ineligible (that verdict is the income test's negative
+    outcome), and any likely_eligible it reports rests on definite evidence —
+    reported SSI participation or its own complete, under-limit income test —
+    never on an FNS/Medicaid pathway that has not itself resolved.
+    """
+    result = screen_all(hh)
+    fns = _by_program(result, "fns")
+    medicaid = _by_program(result, "medicaid")
+    lifeline = _by_program(result, "lifeline")
+
+    if fns.status == "needs_more_info" and medicaid.status == "needs_more_info":
+        assert lifeline.status != "likely_ineligible"
+        if lifeline.status == "likely_eligible":
+            rule_ids = {r.rule_id for r in lifeline.reasons}
+            # The FNS/Medicaid adjunctive wording would be dishonest here (both
+            # are undecided), so eligibility must come from SSI or income.
+            assert rule_ids <= {"lifeline.income", "lifeline.qualifying_program"}
+            if rule_ids == {"lifeline.qualifying_program"}:
+                assert any(i.kind == "ssi" for i in hh.income)
