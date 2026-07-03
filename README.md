@@ -54,6 +54,12 @@ every printout. Known v1 simplifications:
   different rules.
 - **The parent/caretaker Medicaid limit is a percentage approximation** of NC's
   dollar-based MAF-C need standard, and is labeled as such in the results.
+- **FNS student restrictions are not modeled.** The interview records
+  `is_student`, but no rule reads it: FNS restricts students age 18–49 enrolled
+  half-time or more in higher education unless they meet an exemption (working
+  20+ hours/week, caring for a young child, and others). A household with such
+  a student can screen likely eligible here and still be denied — a caseworker
+  must apply the student rules.
 - **Homeless households are not modeled** (the shelter-deduction path assumes a
   rent or mortgage figure).
 - **WIC's postpartum/breastfeeding window is not tracked.** The tool only sees
