@@ -261,3 +261,250 @@ def test_sole_member_without_qualified_status_wic_unblocked():
         [_income(100000)],
     )
     assert _assert_all_valid(hh)["wic"] == "likely_eligible"
+
+
+# ---------------------------------------------------------------------------
+# FNS / Medicaid limit boundaries — one cent either side, hand-computed from
+# rules/tables/fns.yaml, fpl.yaml, and medicaid.yaml. The arithmetic is in the
+# comments; no expected number is copied from engine output.
+# ---------------------------------------------------------------------------
+
+
+def _fns(household: Household):
+    return next(p for p in screen_all(household).programs if p.program == "fns")
+
+
+def _medicaid(household: Household):
+    return next(p for p in screen_all(household).programs if p.program == "medicaid")
+
+
+def _has_reason(result, rule_id: str, *needles: str) -> bool:
+    for r in result.reasons:
+        if r.rule_id == rule_id and all(n in r.text for n in needles):
+            return True
+    return False
+
+
+def _fns_household(member: dict, income: list[dict], expenses: dict):
+    """Single-purpose FNS boundary household: exact members/income/expenses,
+    no unrelated fields left None that would block the screen."""
+    return Household.model_validate({
+        "members": [member],
+        "income": income,
+        "expenses": expenses,
+        "county": "Wake",
+        "purchases_and_prepares_together": True,
+    })
+
+
+# --- FNS gross income test (200% BBCE), size 1 = 266000 cents ---------------
+# Unearned income (social_security) so there is no 20% earned deduction; no
+# shelter engaged, so the only deduction is the size-1/2 standard ($209.00).
+
+
+def test_fns_gross_limit_one_cent_over_is_ineligible():
+    # gross 266001 > 266000 (200% size-1 limit) -> fails the gross test outright.
+    m = _member("m1", 40)
+    hh = _fns_household(m, [_income(266001, kind="social_security")], {})
+    fns = _fns(hh)
+    assert fns.status == "likely_ineligible"
+    assert _has_reason(fns, "fns.gross_income", "over the limit")
+
+
+def test_fns_gross_limit_exactly_at_limit_passes_gross():
+    # gross 266000 == limit -> passes gross; net = 266000 - 20900 (standard) =
+    # 245100 > 130500 (net size-1) -> ineligible on NET, not gross.
+    m = _member("m1", 40)
+    hh = _fns_household(m, [_income(266000, kind="social_security")], {})
+    fns = _fns(hh)
+    assert fns.status == "likely_ineligible"
+    assert _has_reason(fns, "fns.gross_income", "under the limit")
+    assert _has_reason(fns, "fns.net_income", "over the limit")
+
+
+# --- FNS net income test (100%), size 1 = 130500 cents ---------------------
+# net = gross - standard(20900); boundary gross for net==130500 is 151400.
+
+
+def test_fns_net_limit_exactly_at_limit_is_eligible():
+    # gross 151400 -> net 151400 - 20900 = 130500 == net limit -> eligible.
+    # allotment = 29800 - round_half_up(0.3 * 130500 = 39150) = negative -> $0.
+    m = _member("m1", 40)
+    hh = _fns_household(m, [_income(151400, kind="social_security")], {})
+    fns = _fns(hh)
+    assert fns.status == "likely_eligible"
+    assert fns.estimated_benefit_cents == 0
+    assert _has_reason(fns, "fns.net_income", "under the limit")
+
+
+def test_fns_net_limit_one_cent_over_is_ineligible():
+    # gross 151401 -> net 130501 > 130500 -> ineligible on the net test.
+    m = _member("m1", 40)
+    hh = _fns_household(m, [_income(151401, kind="social_security")], {})
+    fns = _fns(hh)
+    assert fns.status == "likely_ineligible"
+    assert _has_reason(fns, "fns.net_income", "over the limit")
+
+
+# --- Elderly/disabled medical deduction threshold = 3500 cents ($35.00) -----
+# Applies only to expenses strictly ABOVE $35; a 60+ member makes the household
+# elderly (gross-exempt). Income unearned, no shelter engaged.
+
+
+def test_fns_medical_expense_exactly_at_threshold_gives_no_deduction():
+    # medical 3500 is NOT > 3500 -> no medical deduction, no medical reason.
+    m = _member("m1", 65)
+    hh = _fns_household(
+        m,
+        [_income(100000, kind="social_security")],
+        {"medical_expenses_elderly_disabled_cents": 3500},
+    )
+    fns = _fns(hh)
+    assert fns.status == "likely_eligible"
+    assert not any(r.rule_id == "fns.deductions.medical" for r in fns.reasons)
+
+
+def test_fns_medical_expense_one_cent_over_threshold_deducts_the_excess():
+    # medical 3501 > 3500 -> deduction of 3501 - 3500 = 1 cent ($0.01).
+    m = _member("m1", 65)
+    hh = _fns_household(
+        m,
+        [_income(100000, kind="social_security")],
+        {"medical_expenses_elderly_disabled_cents": 3501},
+    )
+    fns = _fns(hh)
+    assert fns.status == "likely_eligible"
+    assert _has_reason(fns, "fns.deductions.medical", "$0.01", "$35.00")
+
+
+# --- Excess shelter cap = 74400 cents ($744.00): capped for a non-elderly
+# household, uncapped when an elderly member is present -------------------
+# Size 1, gross 100000 unearned, rent 150000, no heating SUA.
+# income_after_other = 100000 - 20900 (standard) = 79100; half = 39550.
+# shelter = 150000; excess = 150000 - 39550 = 110450.
+
+
+def test_fns_excess_shelter_capped_for_non_elderly():
+    # Non-elderly: excess 110450 is capped at 74400.
+    # net = 100000 - 20900 - 74400 = 4700;
+    # allotment = 29800 - round_half_up(0.3 * 4700 = 1410) = 28390.
+    m = _member("m1", 40)
+    hh = _fns_household(
+        m,
+        [_income(100000, kind="social_security")],
+        {"rent_or_mortgage_cents": 150000, "pays_heating_cooling": False,
+         "utilities_included": False},
+    )
+    fns = _fns(hh)
+    assert fns.status == "likely_eligible"
+    assert _has_reason(fns, "fns.deductions.shelter", "$744.00")
+    assert fns.estimated_benefit_cents == 28390
+
+
+def test_fns_excess_shelter_uncapped_with_elderly_member():
+    # Elderly (age 65): excess 110450 applies uncapped.
+    # net = max(100000 - 20900 - 110450, 0) = 0; allotment = 29800 - 0 = 29800.
+    m = _member("m1", 65)
+    hh = _fns_household(
+        m,
+        [_income(100000, kind="social_security")],
+        {"rent_or_mortgage_cents": 150000, "pays_heating_cooling": False,
+         "utilities_included": False},
+    )
+    fns = _fns(hh)
+    assert fns.status == "likely_eligible"
+    assert _has_reason(fns, "fns.deductions.shelter", "$1,104.50")
+    assert fns.estimated_benefit_cents == 29800
+
+
+# --- SUA band edge: size 4 uses "4" ($837.00); size 5 uses "5+" ($912.00) ---
+# Both non-elderly, gross 200000 unearned, rent 60000, pays heating.
+# Size 4: standard "4"=22300; income_after_other=177700; half=88850;
+#   shelter = 60000 + 83700 = 143700; excess = 54850 (< 74400 cap, uncapped);
+#   net = 200000 - 22300 - 54850 = 122850 (<= 268000 net-4) -> eligible;
+#   allotment = 99400 - round_half_up(0.3*122850=36855) = 62545.
+# Size 5: standard "5"=26100; income_after_other=173900; half=86950;
+#   shelter = 60000 + 91200 = 151200; excess = 64250 (< 74400, uncapped);
+#   net = 200000 - 26100 - 64250 = 109650 (<= 313800 net-5) -> eligible;
+#   allotment = 118300 - round_half_up(0.3*109650=32895) = 85405.
+
+
+def _sua_household(n: int):
+    members = [_member(f"m{i}", 40) for i in range(1, n + 1)]
+    return Household.model_validate({
+        "members": members,
+        "income": [_income(200000, kind="social_security")],
+        "expenses": {"rent_or_mortgage_cents": 60000, "pays_heating_cooling": True,
+                     "utilities_included": False},
+        "county": "Wake",
+        "purchases_and_prepares_together": True,
+    })
+
+
+def test_fns_sua_band_size_four_uses_size_four_allowance():
+    fns = _fns(_sua_household(4))
+    assert fns.status == "likely_eligible"
+    # shelter reason reports the excess: 60000 + 83700(SUA "4") - 88850(half) = 54850.
+    assert _has_reason(fns, "fns.deductions.shelter", "$548.50")
+    assert fns.estimated_benefit_cents == 62545
+
+
+def test_fns_sua_band_size_five_uses_five_plus_allowance():
+    fns = _fns(_sua_household(5))
+    assert fns.status == "likely_eligible"
+    # shelter reason reports the excess: 60000 + 91200(SUA "5+") - 86950(half) = 64250.
+    assert _has_reason(fns, "fns.deductions.shelter", "$642.50")
+    assert fns.estimated_benefit_cents == 85405
+
+
+# --- Medicaid age-band edges (size 1; disregard 5% applied on top of the
+# stored base percentages). fpl_monthly(1) = 133000. -----------------------
+
+
+def _medicaid_household(age: int, income_cents: int, **member_over):
+    m = _member("m1", age, **member_over)
+    return Household.model_validate({
+        "members": [m],
+        "income": [_income(income_cents, kind="wages")],
+        "county": "Wake",
+        "purchases_and_prepares_together": True,
+    })
+
+
+def test_medicaid_child_band_edge_at_age_six():
+    # age_1_5 limit = round(133000 * 146/100) = 194180.
+    # age_6_18 limit = round(133000 * 112/100) = 148960.
+    # Income 148961 is one cent over the age-6 band but well under CHIP (287280):
+    #   age 5 -> children's Medicaid on the 141%+5% band ($1,941.80);
+    #   age 6 -> the same income now only reaches CHIP-level coverage.
+    five = _medicaid_household(5, 148961)
+    six = _medicaid_household(6, 148961)
+    assert _medicaid(five).status == "likely_eligible"
+    assert _has_reason(_medicaid(five), "medicaid.child", "$1,941.80")
+    assert _medicaid(six).status == "likely_eligible"
+    # The CHIP-level reason cites the CHIP ceiling: round(133000*216/100)=287280.
+    assert _has_reason(_medicaid(six), "medicaid.child", "CHIP", "$2,872.80")
+
+
+def test_medicaid_child_to_adult_edge_at_age_nineteen():
+    # Income 200000: under CHIP ceiling (287280) but over the size-1 expansion
+    # limit (round(133000 * 143/100) = 190190).
+    #   age 18 -> CHIP-level child coverage -> eligible;
+    #   age 19 -> adult expansion only, and 200000 > 190190 -> ineligible.
+    eighteen = _medicaid_household(18, 200000, is_pregnant=False)
+    nineteen = _medicaid_household(19, 200000, is_pregnant=False)
+    assert _medicaid(eighteen).status == "likely_eligible"
+    assert _medicaid(nineteen).status == "likely_ineligible"
+    assert _has_reason(_medicaid(nineteen), "medicaid.expansion_adult", "does not appear to qualify")
+
+
+def test_medicaid_expansion_to_abd_edge_at_age_sixty_five():
+    # Income 100000 (under the 190190 expansion limit).
+    #   age 64 -> expansion adult -> eligible;
+    #   age 65 -> out of MAGI scope, ABD hand-off -> needs_more_info.
+    sixtyfour = _medicaid_household(64, 100000, is_pregnant=False)
+    sixtyfive = _medicaid_household(65, 100000, is_pregnant=False)
+    assert _medicaid(sixtyfour).status == "likely_eligible"
+    assert _has_reason(_medicaid(sixtyfour), "medicaid.expansion_adult", "likely")
+    assert _medicaid(sixtyfive).status == "needs_more_info"
+    assert _has_reason(_medicaid(sixtyfive), "medicaid.magi_income", "65 or")
