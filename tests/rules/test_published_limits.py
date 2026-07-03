@@ -22,7 +22,7 @@ additional-member method).
 from __future__ import annotations
 
 from rules.programs._shared import pct_of_fpl
-from rules.programs.medicaid import _limit
+from rules.programs.medicaid import _limit, _maf_cn_limit
 from rules.tables.loader import load_table
 
 # MA-3321 base dollar limits by household size, integer cents. Keys 1-10.
@@ -80,28 +80,14 @@ def test_engine_magi_limits_match_chart_dollars():
             )
 
 
-def test_parent_caretaker_pct_is_the_size_one_chart_approximation():
-    """parent_caretaker_pct is a documented size-1 approximation of the
-    dollar-based MAF-C/N need standard: 33 == round(43400 / 133000 * 100)."""
+def test_engine_parent_caretaker_limit_matches_chart_exactly():
+    """The engine screens parent/caretaker against the chart's MAF-C/N dollar
+    standard directly (stored in medicaid.yaml), so unlike the ceiling-rounded
+    percentage rows this one must match the chart TO THE CENT: printed dollars
+    plus the printed disregard row at every size."""
     values = load_table("medicaid").values
-    assert int(values["parent_caretaker_pct"]) == 33
-    assert _MAF_C_N[1] == 43400
-    assert round(_MAF_C_N[1] / pct_of_fpl(100, 1) * 100) == 33
-
-
-def test_parent_caretaker_approximation_overshoots_chart_at_every_size():
-    """The flat 33%+5% approximation is MORE generous than the chart's MAF-C/N
-    dollar standard at every size (the gap grows with size: ~$5 at size 1,
-    ~$676 at size 10). This pins the direction of the documented v1
-    approximation error; outcomes are unaffected for adults 19-64 because
-    anyone under this limit is far under the expansion limit, but a future
-    version should screen against the chart's dollar standard directly.
-    If this test ever fails, the approximation changed shape — re-verify
-    against the MA-3321 chart before adjusting."""
-    values = load_table("medicaid").values
-    base = int(values["parent_caretaker_pct"])
     disregard = int(values["magi_disregard_pct"])
     for size in range(1, 11):
-        engine = _limit(base, disregard, size)
+        engine = _maf_cn_limit(values, disregard, size)
         chart_total = _MAF_C_N[size] + _DISREGARD_5PCT[size]
-        assert engine >= chart_total, f"size {size}: engine {engine} < chart {chart_total}"
+        assert engine == chart_total, f"size {size}: engine {engine} != chart {chart_total}"

@@ -33,16 +33,25 @@ values:
   # CHIP upper income ceiling that applies to all child age bands (MIC-1 rows).
   child_chip_ceiling_pct: 211
   # Parents / caretaker relatives (MAF-C/N, "Aid to Families with Children").
-  # NC publishes MAF-C as a low DOLLAR need standard rather than a flat FPL
-  # percentage, so the implied % drifts with household size (size 1 $434 ->
-  # ~32.6% FPL; size 4 $744 -> ~27.1% FPL). We store the size-1 MAF-C limit
-  # ($434/mo) expressed against the 2026 size-1 FPL ($1,330/mo) = 33% (rounded).
+  # NC publishes MAF-C/N as a DOLLAR need standard per household size (the
+  # MA-3321 chart's MAF-C/N row), not a percentage of FPL, so the dollars are
+  # stored directly (integer cents). The 5% MAGI disregard is added at
+  # screening time like every percentage category. Beyond size 10, extend by
+  # the chart's "Add'l" figure ($78/member).
   # NC has expanded Medicaid, so most parents qualify via the 138% expansion
-  # group; this MAF-C limit governs the legacy parent/caretaker pathway only.
-  # NOTE: because the limit is dollar-based, program logic should prefer the
-  # published MAF-C dollar standard over this single percentage where exactness
-  # matters; this percentage is a documented size-1 approximation.
-  parent_caretaker_pct: 33
+  # group; this MAF-C/N standard governs the legacy parent/caretaker pathway only.
+  maf_cn_monthly_cents:
+    1: 43400     # $434
+    2: 56900     # $569
+    3: 66700     # $667
+    4: 74400     # $744
+    5: 82400     # $824
+    6: 90100     # $901
+    7: 97500     # $975
+    8: 103600    # $1,036
+    9: 109600    # $1,096
+    10: 116900   # $1,169
+  maf_cn_additional_member_cents: 7800  # $78 per member beyond size 10
   # 5% FPL MAGI disregard, applied at screening time to the BASE percentages
   # above for the highest category the individual could qualify under (the
   # standard MAGI "5 percentage-point" disregard). Stored as an integer.

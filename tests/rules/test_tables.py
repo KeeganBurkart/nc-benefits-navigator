@@ -263,7 +263,8 @@ MEDICAID_REQUIRED_KEYS = {
     "adult_expansion_pct",
     "pregnant_pct",
     "child_pct_by_age_band",
-    "parent_caretaker_pct",
+    "maf_cn_monthly_cents",
+    "maf_cn_additional_member_cents",
     "magi_disregard_pct",
 }
 
@@ -283,12 +284,20 @@ def test_medicaid_expansion_and_disregard() -> None:
 def test_medicaid_percentages_are_positive() -> None:
     v = load_table("medicaid").values
     assert v["pregnant_pct"] > 0
-    assert v["parent_caretaker_pct"] > 0
     bands = v["child_pct_by_age_band"]
     assert isinstance(bands, _Mapping) and bands
     for label, pct in bands.items():
         assert isinstance(label, str)
         assert isinstance(pct, (int, float)) and pct > 0
+
+
+def test_medicaid_maf_cn_standard_covers_sizes_and_increases() -> None:
+    v = load_table("medicaid").values
+    maf = v["maf_cn_monthly_cents"]
+    assert set(maf) == set(range(1, 11))
+    for size in range(1, 10):
+        assert maf[size + 1] > maf[size], f"MAF-C/N not increasing at size {size}"
+    assert v["maf_cn_additional_member_cents"] > 0
 
 
 # ---------------------------------------------------------------------------

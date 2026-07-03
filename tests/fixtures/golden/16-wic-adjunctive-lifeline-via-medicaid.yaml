@@ -26,7 +26,7 @@ household:
 # Medicaid (size 2, countable wages 350000):
 #   m2 (age 3, band 1-5): base limit (141%+5%) of FPL(2) 180333 = round_half_up(180333*1.46) = 263286; 350000 > 263286.
 #     CHIP ceiling (211%+5%) = round_half_up(180333*2.16 = 389519.28) = 389519; 350000 <= 389519 -> m2 eligible (CHIP level).
-#   m1 (age 30): parent/caretaker (33%+5%) = 68527 -> no; expansion (133%+5%) = 248860 -> no.
+#   m1 (age 30): parent/caretaker (MAF-C/N 56900 + 5% disregard 9017) = 65917 -> no; expansion (133%+5%) = 248860 -> no.
 #   -> household likely_eligible via m2.
 # WIC: categorical via m2 (age 3). Size 2 (no pregnancies); 185% FPL(2) =
 #   round_half_up(180333 * 1.85 = 333616.05) = 333616; 350000 > 333616 -> over the income limit,

@@ -52,8 +52,10 @@ every printout. Known v1 simplifications:
 - **No aged/blind/disabled (ABD) Medicaid.** Members 65+ are flagged for a
   caseworker hand-off rather than screened — ABD Medicaid uses entirely
   different rules.
-- **The parent/caretaker Medicaid limit is a percentage approximation** of NC's
-  dollar-based MAF-C need standard, and is labeled as such in the results.
+- **The parent/caretaker Medicaid limit uses NC's published MAF-C/N dollar
+  standard** for the whole-household size; the real standard depends on the
+  Medicaid household's exact composition, and the results say a caseworker
+  must confirm it.
 - **FNS student restrictions are not modeled.** The interview records
   `is_student`, but no rule reads it: FNS restricts students age 18–49 enrolled
   half-time or more in higher education unless they meet an exemption (working

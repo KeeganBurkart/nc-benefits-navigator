@@ -12,10 +12,11 @@ Reference values used below:
     adult_expansion_pct = 133   pregnant_pct = 196
     child_pct_by_age_band: under_1=194 age_1_5=141 age_6_18=107
     child_chip_ceiling_pct = 211
-    parent_caretaker_pct = 33
+    maf_cn_monthly_cents: 1=43400 2=56900 (dollar standard, not a percentage)
     magi_disregard_pct = 5  (added to the base at screening)
 
-  Effective limit = (base + 5)% * FPL_monthly[size].
+  Effective limit = (base + 5)% * FPL_monthly[size]; parent/caretaker =
+  maf_cn_monthly_cents[size] + 5% * FPL_monthly[size].
 
   At SIZE 1 (FPL 133000):
     child under_1   = 199% * 133000 = 264670
@@ -23,7 +24,7 @@ Reference values used below:
     child age_6_18  = 112% * 133000 = 148960
     child CHIP      = 216% * 133000 = 287280
     pregnant        = 201% * 133000 = 267330
-    parent/caretaker= 38%  * 133000 = 50540
+    parent/caretaker= 43400 + 6650 = 50050
     expansion adult = 138% * 133000 = 183540
 """
 from __future__ import annotations
@@ -173,8 +174,8 @@ def test_pregnant_one_cent_over_fails_to_expansion_then_ineligible():
 # ---------------------------------------------------------------------------
 
 def test_parent_caretaker_at_limit_passes_with_caveat():
-    # parent/caretaker limit size 2 = 38% * 180333 = 68526.54 → 68527 (half-up).
-    # Parent m1 (age 40) with child c1 (age 10). income 68000 <= 68527 → eligible
+    # parent/caretaker limit size 2 = MAF-C/N 56900 + 5%*180333 (=9017) = 65917.
+    # Parent m1 (age 40) with child c1 (age 10). income 65917 <= 65917 → eligible
     # via parent/caretaker. The child c1 at age_6_18 CHIP ceiling 216% * 180333
     # = 389519.28 → 389519 — child also eligible, but to isolate the caveat we
     # make income low enough that BOTH pass; child is higher priority though, so
@@ -189,13 +190,13 @@ def test_parent_caretaker_at_limit_passes_with_caveat():
     # household where parent qualifies and assert the reason text mentions a
     # dollar standard that varies / caseworker.
     #
-    # size 2: parent m1 age 40, child c1 age 10. income 68000.
-    #   parent limit = 68527 → 68000 <= limit → parent eligible.
-    #   child age_6_18 CHIP 216% * 180333 = 389519 → 68000 <= limit → child eligible.
+    # size 2: parent m1 age 40, child c1 age 10. income 65917 (at limit).
+    #   parent limit = 65917 → 65917 <= limit → parent eligible.
+    #   child age_6_18 CHIP 216% * 180333 = 389519 → 65917 <= limit → child eligible.
     hh = Household(
         members=[member("m1", age=40, relationship="self"),
                  member("c1", age=10, relationship="child")],
-        income=[income("i1", 68000)],
+        income=[income("i1", 65917)],
     )
     r = evaluate(hh)
     assert r.status == "likely_eligible"
@@ -207,7 +208,7 @@ def test_parent_caretaker_at_limit_passes_with_caveat():
 
 def test_parent_caretaker_over_limit_but_child_still_eligible():
     # size 2: parent m1 age 40, child c1 age 10. income 100000.
-    #   parent limit 68527 → 100000 over → parent NOT eligible via parent/caretaker.
+    #   parent limit 65917 → 100000 over → parent NOT eligible via parent/caretaker.
     #   parent expansion 138% * 180333 = 248859.54 → 248860; 100000 <= that → parent
     #     eligible via EXPANSION instead.
     #   child CHIP 389519 → 100000 <= → child eligible.

@@ -306,6 +306,7 @@ def test_income_limits_strictly_grow_with_household_size():
     """Every percent-of-FPL limit the engine screens against is strictly
     increasing in household size through 12 (covering the beyond-8
     additional-member extrapolation)."""
+    from rules.programs.medicaid import _maf_cn_limit
     from rules.tables.loader import load_table
 
     med = load_table("medicaid").values
@@ -314,7 +315,6 @@ def test_income_limits_strictly_grow_with_household_size():
         int(med["adult_expansion_pct"]) + disregard,
         int(med["pregnant_pct"]) + disregard,
         int(med["child_chip_ceiling_pct"]) + disregard,
-        int(med["parent_caretaker_pct"]) + disregard,
         *(int(p) + disregard for p in med["child_pct_by_age_band"].values()),
         int(load_table("wic").values["percent_of_fpl"]),
         int(load_table("lifeline").values["percent_of_fpl"]),
@@ -325,6 +325,11 @@ def test_income_limits_strictly_grow_with_household_size():
             assert pct_of_fpl(pct, size + 1) > pct_of_fpl(pct, size), (
                 f"{pct}% limit not increasing at size {size}"
             )
+    # Parent/caretaker is a dollar standard, not a percentage — same invariant.
+    for size in range(1, 12):
+        assert _maf_cn_limit(med, disregard, size + 1) > _maf_cn_limit(med, disregard, size), (
+            f"MAF-C/N limit not increasing at size {size}"
+        )
 
 
 # ---------------------------------------------------------------------------

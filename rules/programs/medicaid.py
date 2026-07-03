@@ -13,8 +13,6 @@ per member, each tied to a manual citation.
 v1 simplifications (each surfaced to the user as a caveat Reason):
 - MAGI household size is the whole household (a caseworker confirms the real,
   tax-filing-based Medicaid household).
-- The parent/caretaker limit is a documented size-1 percentage approximation of
-  NC's dollar-based MAF-C need standard.
 - Members age 65+ are out of MAGI scope (aged/blind/disabled Medicaid uses
   different rules this tool does not screen).
 
@@ -68,6 +66,18 @@ def _limit(base_pct: int, disregard_pct: int, size: int) -> int:
     fpl_monthly = _fpl_monthly(size)
     pct = Decimal(base_pct + disregard_pct)
     return int((Decimal(fpl_monthly) * pct / Decimal(100)).to_integral_value(rounding=ROUND_HALF_UP))
+
+
+def _maf_cn_limit(values, disregard_pct: int, size: int) -> int:
+    """Parent/caretaker (MAF-C/N) monthly limit: NC's published dollar need
+    standard for ``size`` plus the 5% FPL disregard. The chart runs sizes
+    1..10; beyond 10 we add the chart's "Add'l" increment per extra member."""
+    maf = values["maf_cn_monthly_cents"]
+    if size <= 10:
+        standard = int(maf[size])
+    else:
+        standard = int(maf[10]) + int(values["maf_cn_additional_member_cents"]) * (size - 10)
+    return standard + _limit(0, disregard_pct, size)
 
 
 def _child_band(age: int) -> str:
@@ -212,15 +222,16 @@ def _screen_member(
 
     # --- Priority 3: Parent / caretaker (adult with a minor in the household) ---
     if m.age >= _ADULT_MIN_AGE and has_minor:
-        parent_limit = _limit(int(values["parent_caretaker_pct"]), disregard, size)
+        parent_limit = _maf_cn_limit(values, disregard, size)
         if inc <= parent_limit:
             out.eligible = True
             out.reasons.append(reason(
                 "medicaid.parent_caretaker",
                 f"As a parent or caretaker living with a child, {who} may qualify for "
-                f"Medicaid based on the household's monthly income ({fmt(inc)}). The real "
-                f"limit here is a dollar amount that varies by household size, not a simple "
-                f"percentage, so a caseworker must confirm it.",
+                f"Medicaid: the household's monthly income ({fmt(inc)}) is within NC's "
+                f"published dollar standard for this household size ({fmt(parent_limit)}). "
+                f"This standard varies with the Medicaid household's exact composition, "
+                f"so a caseworker must confirm it.",
             ))
             return out
 
