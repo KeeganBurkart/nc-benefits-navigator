@@ -125,8 +125,20 @@ def _is_tool_result(msg: dict) -> bool:
 
 
 def _compact_summary_str(state: SessionStateLike) -> str:
+    """Build the JSON screening summary embedded in the system prompt.
+
+    ``household_facts`` is included so the model sees facts recorded through
+    the editable facts panel, not just its own tool calls. Household string
+    fields (county, ids) are user-controlled free text; json.dumps escaping
+    keeps each one a single inert JSON string inside the summary block, and
+    the prompt explicitly marks the block as data, not instructions.
+    """
     screening = state.screening if state.screening is not None else screen_all(state.household)
-    return json.dumps(compact_screening(screening), indent=2)
+    summary = {
+        "household_facts": state.household.model_dump(),
+        **compact_screening(screening),
+    }
+    return json.dumps(summary, indent=2)
 
 
 async def run_turn(

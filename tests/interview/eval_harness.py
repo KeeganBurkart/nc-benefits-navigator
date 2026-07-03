@@ -16,6 +16,8 @@ import pytest
 
 from interview.loop import run_turn
 from interview.tools import SessionState
+from rules.engine import screen_all
+from rules.models import Household
 
 MODEL = os.environ.get("NAV_MODEL", "claude-sonnet-4-6")
 PRICE_IN_PER_MTOK = 3.0
@@ -147,13 +149,19 @@ async def run_scenario(
     *,
     followups: bool = True,
     max_followups: int = 4,
+    initial_household: Household | None = None,
 ) -> Transcript:
     """Run one scripted conversation against the live API.
 
     With followups=True, unanswered missing fields after the script are
     answered from FOLLOWUP_ANSWERS until resolved (or max_followups hit).
+    ``initial_household`` seeds the session as if facts had been entered
+    through the editable panel before the chat started.
     """
     state = SessionState()
+    if initial_household is not None:
+        state.household = initial_household
+        state.screening = screen_all(initial_household)
     client = CountingClient()
     transcript = Transcript()
 
