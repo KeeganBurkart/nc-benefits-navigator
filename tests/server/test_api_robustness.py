@@ -1,4 +1,4 @@
-"""Adversarial API tests — hostile, malformed, and racing requests.
+"""Robustness API tests — hostile, malformed, and racing requests.
 
 Every case must produce a clean 4xx or a coherent 200: no 500s, no crashed
 session, and a failed patch must never half-apply. Offline (httpx against the

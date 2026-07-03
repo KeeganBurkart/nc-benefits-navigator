@@ -32,10 +32,10 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
     "eval: real-API interview evals — run manually with `uv run pytest -m eval`",
-    "adversarial: real-API adversarial interview evals — run manually with `uv run pytest -m adversarial`",
+    "robustness: real-API robustness interview evals — run manually with `uv run pytest -m robustness`",
     "linkcheck: network tests that fetch citation/source URLs — run manually with `uv run pytest -m linkcheck`",
 ]
-addopts = "-m 'not eval and not adversarial and not linkcheck'"
+addopts = "-m 'not eval and not robustness and not linkcheck'"
 
 [tool.ruff]
 target-version = "py312"

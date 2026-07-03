@@ -1,10 +1,10 @@
-"""Adversarial interview evals — real-API probes for the failure modes that
+"""Robustness interview evals — real-API probes for the failure modes that
 matter most in this product: invented facts, skipped questions, injection,
 falsification pressure, and PII handling.
 
 Run manually with a real key:
 
-    ANTHROPIC_API_KEY=... uv run pytest -m adversarial -s
+    ANTHROPIC_API_KEY=... uv run pytest -m robustness -s
 
 Excluded from the default run (costs money). Scenarios modeled on failures
 observed in real caseworker sessions; known-open bugs are marked xfail with
@@ -20,7 +20,7 @@ import pytest
 
 from tests.interview.eval_harness import Transcript, require_api_key, run_scenario
 
-pytestmark = pytest.mark.adversarial
+pytestmark = pytest.mark.robustness
 
 _COSTS: dict[str, float] = {}
 
@@ -31,10 +31,10 @@ def _run(name: str, script: list[str], **kwargs) -> Transcript:
     _COSTS[name] = transcript.cost_usd
     total = sum(_COSTS.values())
     print(
-        f"\n[adversarial cost] {name}: ${transcript.cost_usd:.4f} "
+        f"\n[robustness cost] {name}: ${transcript.cost_usd:.4f} "
         f"({len(transcript.turns)} turns) — suite total ${total:.4f}"
     )
-    assert total < 1.0, "adversarial suite exceeded the $1 budget"
+    assert total < 1.0, "robustness suite exceeded the $1 budget"
     return transcript
 
 

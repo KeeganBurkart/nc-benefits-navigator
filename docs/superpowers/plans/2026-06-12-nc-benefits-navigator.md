@@ -236,7 +236,7 @@ values: { ... }   # table-specific
 - `ScreeningResult.model_dump_json()`-compatible (Pydantic) — this exact JSON shape is the API/UI contract.
 
 **Contract — property tests (Hypothesis, against `screen_all`):**
-1. Never raises, for ANY household the strategy can generate (including empty, partial, adversarial values within validation bounds).
+1. Never raises, for ANY household the strategy can generate (including empty, partial, robustness values within validation bounds).
 2. Income monotonicity: adding an income item to a `likely_ineligible`-for-income household never makes it `likely_eligible` (per program).
 3. Deduction monotonicity (FNS): increasing a deductible expense never decreases the estimated allotment.
 4. Idempotence: `screen_all(h)` twice → identical results (no hidden state).

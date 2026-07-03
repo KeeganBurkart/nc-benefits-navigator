@@ -30,7 +30,7 @@ behavior.
 ```bash
 uv run pytest                # 400+ engine/interview/server tests (fast, offline)
 uv run pytest -m eval -s     # real-API interview evals, 5 scenarios (needs ANTHROPIC_API_KEY, ~$0.40)
-uv run pytest -m adversarial -s  # real-API adversarial evals (needs ANTHROPIC_API_KEY, ~$0.30)
+uv run pytest -m robustness -s  # real-API robustness evals (needs ANTHROPIC_API_KEY, ~$0.30)
 uv run pytest -m linkcheck   # network: every citation/source URL returns HTTP 200
 cd web && npm test           # UI component tests (Vitest)
 cd web && npm run build      # build web/dist (required before e2e)
@@ -39,21 +39,21 @@ uv run ruff check .          # lint
 ```
 
 Three suites are excluded from the default run (`addopts` in `pyproject.toml`):
-`eval` and `adversarial` cost real money and assert behaviour, not exact
-matches; `linkcheck` hits the network. Run `eval`/`adversarial` whenever you
+`eval` and `robustness` cost real money and assert behaviour, not exact
+matches; `linkcheck` hits the network. Run `eval`/`robustness` whenever you
 touch `interview/prompt.py` or `interview/loop.py`. Scenarios live in
 `tests/interview/test_evals.py` on the `run_scenario` harness
 (`tests/interview/eval_harness.py`): a happy path, an over-income household,
-a 65+ ABD hand-off, an adversarial verdict/SSN probe, and a mid-conversation
+a 65+ ABD hand-off, an robustness verdict/SSN probe, and a mid-conversation
 fact correction. Adding one is a fixture (the script) plus a test (the
 behavioral assertions).
 
-The adversarial suite (`tests/interview/test_adversarial_evals.py`) probes the
+The robustness suite (`tests/interview/test_robustness_evals.py`) probes the
 failure modes that matter most here: inventing unstated facts, summarizing
 without probing expenses, prompt injection (including a value entered through
 the facts panel — `panel_injection` seeds an instruction-shaped `county`),
 pressure to falsify income, invalid values, and PII dumps. Its offline sibling
-(`tests/rules/test_adversarial.py`) pins engine edge cases beyond the property
+(`tests/rules/test_robustness.py`) pins engine edge cases beyond the property
 tests' bounds — oversized households, one-cent limit boundaries for FNS/Medicaid
 (every figure hand-computed from `rules/tables/*.yaml`), degenerate income — and
 runs in the default suite for free. `tests/rules/test_freshness.py` fails the

@@ -1,4 +1,4 @@
-"""Adversarial engine tests — deterministic edge cases beyond Hypothesis's bounds.
+"""Robustness engine tests — deterministic edge cases beyond Hypothesis's bounds.
 
 The property tests generate households of 0..6 members with cents <= 2M; these
 tests pin down the extremes and boundaries outside that envelope:
