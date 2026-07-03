@@ -222,14 +222,32 @@ def test_fns_gross_limit_exceeds_net_limit_per_size() -> None:
         assert gross[size] > net[size], f"gross !> net at size {size}"
 
 
-def test_fns_gross_limit_approximates_twice_fpl() -> None:
-    """NC BBCE gross limit (200% FPL) should be within rounding of 2x the FPL monthly."""
+def test_fns_gross_limit_is_exactly_200pct_of_fpl_annual() -> None:
+    """NC BBCE gross limit equals HHS's published 200% monthly column, which is
+    round_half_up(annual * 2 / 12) — exact at all ten sizes (sizes 9-10 extend
+    the annual figure by additional_member_annual_cents first)."""
     fns = load_table("fns").values["gross_limit_200pct_cents"]
-    fpl = load_table("fpl").values["monthly_cents_by_household_size"]
-    for size in range(1, 9):
-        naive = fpl[size] * 2
-        # allow a few cents/dollars of rounding divergence
-        assert abs(fns[size] - naive) <= 200, f"size {size}: {fns[size]} vs 2xFPL {naive}"
+    fpl = load_table("fpl").values
+    annual = fpl["annual_cents_by_household_size"]
+    for size in range(1, 11):
+        a = annual[size] if size <= 8 else (
+            annual[8] + fpl["additional_member_annual_cents"] * (size - 8)
+        )
+        expected = int(
+            (Decimal(a) * 2 / Decimal(12)).to_integral_value(rounding=ROUND_HALF_UP)
+        )
+        assert fns[size] == expected, f"size {size}: {fns[size]} != {expected}"
+
+
+def test_fns_sizes_nine_and_ten_use_published_increments() -> None:
+    """Sizes 9-10 are extended from the printed size-8 figures using USDA's
+    published each-additional increments: net +$459/member, allotment +$218/person."""
+    v = load_table("fns").values
+    net = v["net_limit_100pct_cents"]
+    allot = v["max_allotment_cents"]
+    for size in (9, 10):
+        assert net[size] == net[size - 1] + 45900, f"net size {size}"
+        assert allot[size] == allot[size - 1] + 21800, f"allotment size {size}"
 
 
 def test_fns_standard_deduction_present() -> None:

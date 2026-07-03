@@ -5,7 +5,9 @@ the hand-picked golden fixtures:
 
 1. ``screen_all`` never raises for any valid household (including empty).
 2. Adding income never flips a program likely_ineligible -> likely_eligible.
-3. Increasing a deductible FNS expense never DECREASES the allotment.
+3. Monotonicity: increasing a deductible FNS expense (dependent care, rent)
+   never DECREASES the allotment; increasing income never INCREASES it; every
+   percent-of-FPL limit strictly grows with household size.
 4. ``screen_all`` is idempotent at the ``model_dump()`` level.
 5. Output shape invariants: citation urls are https, statuses are in the
    Literal, and every missing-field path matches the dotted-path regex.
@@ -265,6 +267,64 @@ def test_fns_increasing_deduction_never_lowers_allotment(hh: Household, bump: in
     fns_after = _by_program(screen_all(bumped), "fns")
     assume(fns_after.status == "likely_eligible")  # only compare when both runs land likely_eligible
     assert fns_after.estimated_benefit_cents >= fns_before.estimated_benefit_cents
+
+
+@settings(max_examples=150, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(eligible_fns_households(), st.integers(min_value=1, max_value=200_000))
+def test_fns_increasing_income_never_raises_allotment(hh: Household, bump: int):
+    fns_before = _by_program(screen_all(hh), "fns")
+    assume(fns_before.status == "likely_eligible")
+
+    inc = hh.income[0]
+    bumped_inc = inc.model_copy(update={"amount_cents": inc.amount_cents + bump})
+    bumped = hh.model_copy(update={"income": [bumped_inc, *hh.income[1:]]})
+
+    fns_after = _by_program(screen_all(bumped), "fns")
+    if fns_after.status == "likely_eligible":  # eligible -> ineligible is legitimate
+        assert fns_after.estimated_benefit_cents <= fns_before.estimated_benefit_cents
+
+
+@settings(max_examples=150, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(eligible_fns_households(), _cents)
+def test_fns_increasing_rent_never_lowers_allotment(hh: Household, bump: int):
+    # Same shape as the dependent-care test, but through the shelter-deduction
+    # path (excess-shelter computation and its non-elderly cap).
+    fns_before = _by_program(screen_all(hh), "fns")
+    assume(fns_before.status == "likely_eligible")
+
+    exp = hh.expenses
+    base_rent = exp.rent_or_mortgage_cents or 0
+    bumped_exp = exp.model_copy(update={"rent_or_mortgage_cents": base_rent + bump})
+    bumped = hh.model_copy(update={"expenses": bumped_exp})
+
+    fns_after = _by_program(screen_all(bumped), "fns")
+    assume(fns_after.status == "likely_eligible")
+    assert fns_after.estimated_benefit_cents >= fns_before.estimated_benefit_cents
+
+
+def test_income_limits_strictly_grow_with_household_size():
+    """Every percent-of-FPL limit the engine screens against is strictly
+    increasing in household size through 12 (covering the beyond-8
+    additional-member extrapolation)."""
+    from rules.tables.loader import load_table
+
+    med = load_table("medicaid").values
+    disregard = int(med["magi_disregard_pct"])
+    effective_pcts = {
+        int(med["adult_expansion_pct"]) + disregard,
+        int(med["pregnant_pct"]) + disregard,
+        int(med["child_chip_ceiling_pct"]) + disregard,
+        int(med["parent_caretaker_pct"]) + disregard,
+        *(int(p) + disregard for p in med["child_pct_by_age_band"].values()),
+        int(load_table("wic").values["percent_of_fpl"]),
+        int(load_table("lifeline").values["percent_of_fpl"]),
+        200,  # FNS BBCE gross
+    }
+    for pct in sorted(effective_pcts):
+        for size in range(1, 12):
+            assert pct_of_fpl(pct, size + 1) > pct_of_fpl(pct, size), (
+                f"{pct}% limit not increasing at size {size}"
+            )
 
 
 # ---------------------------------------------------------------------------
