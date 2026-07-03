@@ -1,0 +1,93 @@
+# Table-drift watchdog: the benefit figures in rules/tables/*.yaml go stale on
+# a schedule (SNAP COLA every Oct 1, FPL every Jan, MA-3321 every Apr 1, WIC
+# IEG every Jul 1). This runs monthly and on demand, and opens/updates a single
+# tracking issue when a table is stale or expiring within 45 days, or when a
+# citation/source URL stops resolving.
+#
+# Dormant until the repo is pushed to GitHub. Requires no secrets beyond the
+# default GITHUB_TOKEN (issues: write).
+name: table-freshness
+
+on:
+  schedule:
+    - cron: "0 12 3 * *" # 12:00 UTC on the 3rd of each month
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install deps
+        run: uv sync --all-extras
+
+      - name: Freshness sentinel (offline)
+        id: freshness
+        continue-on-error: true
+        run: uv run pytest tests/rules/test_freshness.py -q 2>&1 | tee freshness.log
+
+      - name: Citation / source URL linkcheck (network)
+        id: linkcheck
+        continue-on-error: true
+        run: uv run pytest -m linkcheck -q 2>&1 | tee linkcheck.log
+
+      - name: Expiry lookahead (45 days)
+        id: lookahead
+        continue-on-error: true
+        run: |
+          uv run python - <<'EOF' 2>&1 | tee lookahead.log
+          import datetime, sys
+          from rules.tables.loader import load_table
+
+          horizon = datetime.date.today() + datetime.timedelta(days=45)
+          expiring = []
+          for name in ("fpl", "fns", "medicaid", "wic", "lifeline"):
+              t = load_table(name)
+              end = datetime.date.fromisoformat(str(t.effective_to))
+              if end <= horizon:
+                  expiring.append(f"{name}.yaml effective_to {end}")
+          if expiring:
+              print("Tables stale or expiring within 45 days:")
+              print("\n".join(f"  - {line}" for line in expiring))
+              sys.exit(1)
+          print("All tables current beyond the 45-day horizon.")
+          EOF
+
+      - name: Open or update tracking issue on failure
+        if: steps.freshness.outcome == 'failure' || steps.linkcheck.outcome == 'failure' || steps.lookahead.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Automated table-drift check failed on $(date -u +%F)."
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Freshness sentinel | ${{ steps.freshness.outcome }} |"
+            echo "| URL linkcheck | ${{ steps.linkcheck.outcome }} |"
+            echo "| 45-day expiry lookahead | ${{ steps.lookahead.outcome }} |"
+            echo
+            echo '```'
+            tail -n 40 freshness.log linkcheck.log lookahead.log
+            echo '```'
+            echo
+            echo "Update the affected rules/tables/*.yaml from its source_url,"
+            echo "re-verify figures by hand, and re-run the golden fixtures."
+          } > body.md
+          existing=$(gh issue list --state open --search "Benefit table freshness alert in:title" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file body.md
+          else
+            gh issue create --title "Benefit table freshness alert" --body-file body.md
+          fi
+
+      - name: Fail the run if any check failed
+        if: steps.freshness.outcome == 'failure' || steps.linkcheck.outcome == 'failure' || steps.lookahead.outcome == 'failure'
+        run: exit 1
